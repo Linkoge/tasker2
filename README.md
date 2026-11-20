@@ -65,9 +65,28 @@ You can also copy the APK to the phone and open it there. You must allow install
 sources. An APK signed with a different key cannot be installed over an existing one; uninstall
 the old app first.
 
+## Deploy
+
+Deploying means publishing a verified release APK to `../tasker2.apk` (next to the repository).
+`.linko-deploy.json` wires these scripts into the automatic deploy. They run from the repository root:
+
+- `scripts/backup.sh` copies the published APK into the backup directory. If no APK is published yet, it writes an
+  `.absent` marker instead. It keeps the newest 5 entries.
+- `scripts/deploy.sh` runs `scripts/build_apk.sh` (unit tests + release build), checks the new APK, and then
+  replaces the published one atomically. A failed build or check leaves the published APK as it was.
+- `scripts/health.sh` passes when the published APK is a valid zip whose manifest names `dev.tasker2` and that
+  has dex code (`scripts/deploy/apk_check.py`).
+- `scripts/rollback.sh` restores the newest backup. If that backup is an `.absent` marker, it removes the
+  published APK.
+
+You can override these environment variables: `TASKER2_APK_TARGET` (publish path), `TASKER2_BACKUP_DIR`
+(defaults to the runner's `DEPLOY_BACKUP_DIR`, then `~/.local/share/tasker2/backups`), `TASKER2_KEEP_BACKUPS`,
+`TASKER2_BUILD_CMD` and `TASKER2_BUILT_APK`. The scripts never restart services and never install to devices.
+
 ## Tests
 
 ```bash
 ./gradlew testDebugUnitTest     # JVM unit tests: priority sorting, category reorder, moving tasks
 python -m pytest -q -m smoke    # project-structure smoke checks
+python -m pytest -q             # also the deploy script tests (disposable dirs, fake build)
 ```
