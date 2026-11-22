@@ -9,6 +9,7 @@ import dev.tasker2.data.SettingsRepository
 import dev.tasker2.data.SharedPrefsIntStore
 import dev.tasker2.domain.AppSettings
 import dev.tasker2.data.Task
+import dev.tasker2.data.LocalTaskRepository
 import dev.tasker2.data.TaskRepository
 import dev.tasker2.domain.BulkEntry
 import kotlinx.coroutines.flow.SharingStarted
@@ -18,7 +19,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class TaskViewModel(app: Application) : AndroidViewModel(app) {
-    private val repo = TaskRepository(AppDatabase.get(app).taskDao())
+    /** The only storage entry point: a cloud-backed repository can be swapped in here later. */
+    private val repo: TaskRepository = LocalTaskRepository(AppDatabase.get(app).taskDao())
 
     private val settingsRepo = SettingsRepository(SharedPrefsIntStore(app))
     val settings: StateFlow<AppSettings> = settingsRepo.settings

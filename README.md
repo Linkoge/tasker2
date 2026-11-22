@@ -1,6 +1,6 @@
 # Tasker2
 
-A basic native Android task app (Kotlin, Jetpack Compose, Room). Local storage only, no account or sync.
+A basic native Android task app (Kotlin, Jetpack Compose, Room). Local storage only, no account or sync (the data model is prepared for sharing later).
 Dark theme with category tabs, similar in look to Google Tasks.
 
 ## Features
@@ -26,7 +26,13 @@ Dark theme with category tabs, similar in look to Google Tasks.
 
 ## Project layout
 
-- `app/src/main/java/dev/tasker2/data` holds the Room entities, DAO, database and repository.
+- `app/src/main/java/dev/tasker2/data` holds the Room entities, DAO, database and the storage layer. All task/category/order
+  persistence goes through the `TaskRepository` interface (`LocalTaskRepository` is the Room implementation; the view model is the only
+  place that picks it, so a cloud implementation can be swapped in or layered on via its `Flow`s and `snapshot()`).
+  Data model for future sharing: every task and category has a permanent `uuid` (identity; the Long `id` is just a local row handle),
+  `createdAt`/`updatedAt` (epoch ms; `updatedAt` is bumped by every change) and a `deleted` soft-delete flag (tombstone; the UI never sees
+  deleted rows, `snapshot()` returns them). Deleting a category tombstones its tasks too. The v2→v3 database migration
+  (`data/Migrations.kt`, pure SQL) keeps all rows and assigns UUIDs/timestamps; `tests/test_migration_sql.py` runs it on 1.8-shaped data.
 - `app/src/main/java/dev/tasker2/domain/TaskLogic.kt` holds pure sorting, reorder and move logic,
   which the unit tests cover.
 - `app/src/main/java/dev/tasker2/ui` holds the Compose screens (main, task editor, manage categories).

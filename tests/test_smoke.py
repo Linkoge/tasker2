@@ -56,3 +56,18 @@ def test_v18_save_in_header_and_defaults():
     s = (SRC / "domain/AppSettings.kt").read_text()
     assert "crossedOutStyle: CrossedOutStyle = CrossedOutStyle.FADED" in s
     assert "DEFAULT_STRIKE_HALF_DP = 2" in s
+
+
+@pytest.mark.smoke
+def test_v19_repository_interface_uuid_and_version():
+    repo = (SRC / "data/TaskRepository.kt").read_text()
+    assert "interface TaskRepository" in repo and (SRC / "data/LocalTaskRepository.kt").is_file()
+    ent = (SRC / "data/Entities.kt").read_text()
+    assert ent.count("val uuid: String") == 2 and ent.count("val updatedAt") == 2 and ent.count("val deleted: Boolean") == 2
+    # Screens never touch storage directly (the view model is the one place that picks the repository).
+    for f in (SRC / "ui").glob("*.kt"):
+        if f.name == "TaskViewModel.kt":
+            continue
+        t = f.read_text()
+        assert "AppDatabase" not in t and "TaskDao" not in t and "SharedPreferences" not in t, f.name
+    assert 'versionName = "1.9"' in (ROOT / "app/build.gradle.kts").read_text()

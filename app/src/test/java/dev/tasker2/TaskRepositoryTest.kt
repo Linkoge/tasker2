@@ -3,56 +3,21 @@ package dev.tasker2
 import dev.tasker2.data.Category
 import dev.tasker2.data.Task
 import dev.tasker2.data.TaskDao
+import dev.tasker2.data.LocalTaskRepository
 import dev.tasker2.data.TaskRepository
 import dev.tasker2.domain.TaskLogic
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** In-memory DAO mirroring Room's behaviour (ordering by position, cascade delete). */
-private class FakeDao : TaskDao {
-    val cats = MutableStateFlow<List<Category>>(emptyList())
-    val tasks = MutableStateFlow<List<Task>>(emptyList())
-    private var nextId = 1L
-
-    private fun sortedCats() = cats.value.sortedWith(compareBy<Category> { it.position }.thenBy { it.id })
-    override fun observeCategories(): Flow<List<Category>> = cats
-    override suspend fun getCategories() = sortedCats()
-    override suspend fun insertCategory(category: Category): Long {
-        val id = nextId++
-        cats.value = cats.value + category.copy(id = id)
-        return id
-    }
-    override suspend fun updateCategories(categories: List<Category>) {
-        val byId = categories.associateBy { it.id }
-        cats.value = cats.value.map { byId[it.id] ?: it }
-    }
-    override suspend fun deleteCategory(category: Category) {
-        cats.value = cats.value.filter { it.id != category.id }
-        tasks.value = tasks.value.filter { it.categoryId != category.id }
-    }
-    override fun observeTasks(): Flow<List<Task>> = tasks
-    override suspend fun getTask(id: Long) = tasks.value.firstOrNull { it.id == id }
-    override suspend fun insertTask(task: Task): Long {
-        val id = nextId++
-        tasks.value = tasks.value + task.copy(id = id)
-        return id
-    }
-    override suspend fun updateTask(task: Task) {
-        tasks.value = tasks.value.map { if (it.id == task.id) task else it }
-    }
-    override suspend fun deleteTask(task: Task) {
-        tasks.value = tasks.value.filter { it.id != task.id }
-    }
-}
-
 class TaskRepositoryTest {
     private val dao = FakeDao()
-    private val repo = TaskRepository(dao)
+    private val repo: TaskRepository = LocalTaskRepository(dao)
 
     @Test
     fun categoryReorderIsPersisted() = runBlocking {
@@ -84,7 +49,7 @@ class TaskRepositoryTest {
         repo.addTask(a, "in a", "", 5)
         repo.deleteCategory(dao.getCategories().first { it.id == b })
         assertEquals(listOf("A" to 0, "C" to 1), dao.getCategories().map { it.name to it.position })
-        assertEquals(listOf("in a"), dao.tasks.value.map { it.title })
+        assertEquals(listOf("in a"), repo.tasks.first().map { it.title })
     }
 
     @Test
@@ -140,7 +105,7 @@ class TaskRepositoryTest {
     @Test
     fun bulkAddCreatesInOrderInOneCategorySkippingBlanks() = runBlocking {
         val dao = FakeDao()
-        val repo = TaskRepository(dao)
+        val repo: TaskRepository = LocalTaskRepository(dao)
         val c1 = repo.addCategory("A")
         val c2 = repo.addCategory("B")
         repo.addTasks(
@@ -153,7 +118,7 @@ class TaskRepositoryTest {
                 dev.tasker2.domain.BulkEntry("four", "", 7),
             ),
         )
-        val all = dao.tasks.value
+        val all = dao.getTasks()
         assertEquals(4, all.size)
         assertTrue(all.all { it.categoryId == c2 } && c1 != c2)
         assertEquals(listOf("one", "two", "three", "four"), all.sortedBy { it.id }.map { it.title })
