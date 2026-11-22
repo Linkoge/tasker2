@@ -74,7 +74,8 @@ Deploying means publishing a verified release APK to `../tasker2.apk` (next to t
 
 - `scripts/backup.sh` copies the published APK into the backup directory. If no APK is published yet, it writes an
   `.absent` marker instead. It keeps the newest 5 entries.
-- `scripts/deploy.sh` runs `scripts/build_apk.sh` (unit tests + release build), checks the new APK, and then
+- `scripts/deploy.sh` runs `scripts/build_apk.sh` in fast mode (`SKIP_TESTS=1`: `assembleRelease` only, reusable Gradle daemon, `--offline` with
+  online fallback; unit tests already ran before merge), checks the new APK, and then
   replaces the published one atomically. A failed build or check leaves the published APK as it was.
 - `scripts/health.sh` passes when the published APK is a valid zip whose manifest names `dev.tasker2` and that
   has dex code (`scripts/deploy/apk_check.py`).
@@ -83,7 +84,8 @@ Deploying means publishing a verified release APK to `../tasker2.apk` (next to t
 
 You can override these environment variables: `TASKER2_APK_TARGET` (publish path), `TASKER2_BACKUP_DIR`
 (defaults to the runner's `DEPLOY_BACKUP_DIR`, then `~/.local/share/tasker2/backups`), `TASKER2_KEEP_BACKUPS`,
-`TASKER2_BUILD_CMD` and `TASKER2_BUILT_APK`. The scripts never restart services and never install to devices.
+`TASKER2_BUILD_CMD` and `TASKER2_BUILT_APK`. Running `scripts/build_apk.sh` by hand without flags still runs the
+unit tests (`--skip-tests` or `SKIP_TESTS=1` gives the fast build). The scripts never restart services and never install to devices.
 
 ## Tests
 

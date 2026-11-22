@@ -160,3 +160,33 @@ def test_linko_deploy_json_points_at_executable_scripts():
         assert isinstance(argv, list) and argv and all(isinstance(a, str) for a in argv)
         script = ROOT / argv[0]
         assert script.is_file() and os.access(script, os.X_OK), argv[0]
+
+
+def test_deploy_build_is_fast_and_manual_build_runs_tests():
+    deploy = (SCRIPTS / "deploy.sh").read_text()
+    build = (SCRIPTS / "build_apk.sh").read_text()
+    assert 'SKIP_TESTS="${SKIP_TESTS:-1}"' in deploy
+    # Fast path: no unit tests, daemon reusable, offline first with online fallback.
+    fast, slow = build.split('if [ "${SKIP_TESTS:-0}" = "1" ]; then')[1].split("else")
+    assert "testDebugUnitTest" not in fast and "--no-daemon" not in fast
+    assert "--offline assembleRelease" in fast and "retrying online" in fast
+    # Manual run without flags keeps the unit tests.
+    assert "testDebugUnitTest assembleRelease" in slow
+
+
+def test_deploy_passes_skip_tests_to_build_command(env):
+    make_apk(env.tmp / "src.apk")
+    probe = env.tmp / "probe.sh"
+    probe.write_text(
+        f'#!/bin/sh\necho "SKIP_TESTS=$SKIP_TESTS" > "{env.tmp}/probe.out"\n'
+        f'mkdir -p "{env.tmp}/build-out"\ncp "{env.tmp}/src.apk" "{env.tmp}/build-out/tasker2.apk"\n'
+    )
+    probe.chmod(0o755)
+    assert env.run("deploy.sh", TASKER2_BUILD_CMD=str(probe)).returncode == 0
+    assert (env.tmp / "probe.out").read_text().strip() == "SKIP_TESTS=1"
+
+
+def test_gradle_properties_enable_caching():
+    props = (ROOT / "gradle.properties").read_text()
+    for line in ["org.gradle.caching=true", "org.gradle.parallel=true"]:
+        assert line in props

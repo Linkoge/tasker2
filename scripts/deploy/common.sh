@@ -9,7 +9,7 @@ TASKER2_APK_TARGET="${TASKER2_APK_TARGET:-$(dirname "$TASKER2_REPO")/tasker2.apk
 TASKER2_STATE_DIR="${TASKER2_STATE_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/tasker2}"
 TASKER2_BACKUP_DIR="${TASKER2_BACKUP_DIR:-${DEPLOY_BACKUP_DIR:-$TASKER2_STATE_DIR/backups}}"
 TASKER2_KEEP_BACKUPS="${TASKER2_KEEP_BACKUPS:-5}"
-# Command that builds dist/tasker2.apk inside the repository (runs unit tests first).
+# Command that builds dist/tasker2.apk inside the repository (deploy.sh sets SKIP_TESTS=1: no unit tests).
 TASKER2_BUILD_CMD="${TASKER2_BUILD_CMD:-$TASKER2_REPO/scripts/build_apk.sh}"
 TASKER2_BUILT_APK="${TASKER2_BUILT_APK:-$TASKER2_REPO/dist/tasker2.apk}"
 
