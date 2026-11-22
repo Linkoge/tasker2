@@ -72,6 +72,13 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.contentDescription
+import dev.tasker2.domain.CategoryMenu
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -111,6 +118,7 @@ fun MainScreen(
     onManageCategories: () -> Unit,
     onOpenSettings: () -> Unit = {},
     settings: AppSettings = AppSettings(),
+    categoryController: CategoryTabController? = null,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val counts = remember(tasks) { TaskLogic.openCounts(tasks) }
@@ -174,7 +182,7 @@ fun MainScreen(
                 }
                 return@Column
             }
-            CategoryTabs(categories, counts, selectedIndex, settings, onSelectCategory)
+            CategoryTabs(categories, counts, tasks, selectedIndex, settings, onSelectCategory, categoryController)
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
 
             val open = TaskLogic.sortOpen(tasks.filter { it.categoryId == current.id })
@@ -232,13 +240,16 @@ fun MainScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CategoryTabs(
     categories: List<Category>,
     counts: Map<Long, Int>,
+    tasks: List<Task>,
     selectedIndex: Int,
     settings: AppSettings,
     onSelect: (Long) -> Unit,
+    controller: CategoryTabController?,
 ) {
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
@@ -248,36 +259,96 @@ private fun CategoryTabs(
         with(density) { measurer.measure(TabLayout.gapText(settings.tabGapSpaces), tabStyle).size.width.toDp() }
     }
     val nameWidths = remember { mutableStateMapOf<Int, Dp>() }
+    var menuForId by rememberSaveable { mutableLongStateOf(-1L) }
+    var renamingId by rememberSaveable { mutableLongStateOf(-1L) }
+    var adding by rememberSaveable { mutableStateOf(false) }
     // Plain scrolling row (no material Tab / TabRow: those add ripple, padding and a 90dp min width).
-    Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(gap),
-    ) {
-        categories.forEachIndexed { i, cat ->
-            val selected = i == selectedIndex
-            val color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-            Box(
-                Modifier.selectable(
-                    selected = selected, role = Role.Tab,
-                    interactionSource = remember { MutableInteractionSource() }, indication = null,
-                    onClick = { onSelect(cat.id) },
-                ),
-            ) {
-                Row(Modifier.padding(top = 12.dp, bottom = 15.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        cat.name, style = tabStyle, color = color, maxLines = 1,
-                        onTextLayout = { nameWidths[i] = with(density) { it.size.width.toDp() } },
-                    )
-                    val n = counts[cat.id] ?: 0
-                    if (n > 0) Text(" $n", style = tabStyle, color = color, maxLines = 1)
-                }
-                if (selected) {
-                    Box(
-                        Modifier.align(Alignment.BottomStart).width(nameWidths[i] ?: 0.dp).height(3.dp)
-                            .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)),
-                    )
+    // The "+" is outside the scrolling part so it stays pinned at the right edge.
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.weight(1f).horizontalScroll(rememberScrollState()).padding(start = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(gap),
+        ) {
+            categories.forEachIndexed { i, cat ->
+                val selected = i == selectedIndex
+                val color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                Box(
+                    Modifier.combinedClickable(
+                        role = Role.Tab,
+                        interactionSource = remember { MutableInteractionSource() }, indication = null,
+                        onClick = { if (selected && controller != null) menuForId = cat.id else onSelect(cat.id) },
+                        onLongClick = if (controller != null) ({ menuForId = cat.id }) else null,
+                    ).semantics { this.selected = selected },
+                ) {
+                    Row(Modifier.padding(top = 12.dp, bottom = 15.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            cat.name, style = tabStyle, color = color, maxLines = 1,
+                            onTextLayout = { nameWidths[i] = with(density) { it.size.width.toDp() } },
+                        )
+                        val n = counts[cat.id] ?: 0
+                        if (n > 0) Text(" $n", style = tabStyle, color = color, maxLines = 1)
+                    }
+                    if (selected) {
+                        Box(
+                            Modifier.align(Alignment.BottomStart).width(nameWidths[i] ?: 0.dp).height(3.dp)
+                                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)),
+                        )
+                    }
+                    if (controller != null) {
+                        DropdownMenu(expanded = menuForId == cat.id, onDismissRequest = { menuForId = -1L }) {
+                            DropdownMenuItem(
+                                text = { Text("Move left") }, enabled = CategoryMenu.canMoveLeft(i),
+                                onClick = { menuForId = -1L; controller.moveLeft(categories, i) },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Move right") }, enabled = CategoryMenu.canMoveRight(i, categories.size),
+                                onClick = { menuForId = -1L; controller.moveRight(categories, i) },
+                            )
+                            DropdownMenuItem(text = { Text("Rename") }, onClick = { menuForId = -1L; renamingId = cat.id })
+                            DropdownMenuItem(
+                                text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                                onClick = { menuForId = -1L; controller.requestDelete(cat) },
+                            )
+                        }
+                    }
                 }
             }
+        }
+        if (controller != null) {
+            // Plain "+" glyph: no background, border, ripple or circle; a bit larger than the tab font.
+            Text(
+                "+", fontSize = (settings.tabFontSp + 6).sp, color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, role = Role.Button) { adding = true }
+                    .semantics { contentDescription = "New category" }
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+            )
+        }
+    }
+    if (controller != null) {
+        if (adding) {
+            NameDialog(title = "New category", initial = "", onDismiss = { adding = false }) {
+                if (controller.add(it)) adding = false
+            }
+        }
+        categories.firstOrNull { it.id == renamingId }?.let { cat ->
+            NameDialog(title = "Rename category", initial = cat.name, onDismiss = { renamingId = -1L }) {
+                if (controller.rename(cat, it)) renamingId = -1L
+            }
+        }
+        controller.pendingDelete?.let { cat ->
+            AlertDialog(
+                onDismissRequest = { controller.cancelDelete() },
+                title = { Text("Delete category?") },
+                text = { Text(CategoryMenu.deleteMessage(cat.name, tasks.count { it.categoryId == cat.id })) },
+                confirmButton = {
+                    TextButton(
+                        onClick = { controller.confirmDelete(categories) },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    ) { Text("Delete", fontWeight = FontWeight.Bold) }
+                },
+                dismissButton = { TextButton(onClick = { controller.cancelDelete() }) { Text("Cancel") } },
+            )
         }
     }
 }
@@ -319,12 +390,15 @@ private fun TaskRow(
     var menuOpen by remember { mutableStateOf(false) }
     var moveMenuOpen by remember { mutableStateOf(false) }
     val metrics = TaskRowMetrics.metrics(settings.taskGapDp)
-    val grayText = Color(TaskLogic.Gray.TEXT)
+    val palette = TaskLogic.crossedPalette(task.priority, settings.crossedOutStyle)
+    val grayText = Color(palette.text)
+    val accent = Color(palette.accent)
     Box {
         TaskRowLayout(
             Modifier.fillMaxWidth().combinedClickable(onClick = { onEdit(task) }, onLongClick = { menuOpen = true }),
             metrics = metrics,
-            strikeColor = if (grayed) grayText else null,
+            strikeColor = if (grayed) accent else null,
+            strikeThicknessDp = settings.strikeThicknessDp,
             circle = {
                 // Round circle: one tap completes (or reopens) the task, crossed out or not.
                 Box(
@@ -353,14 +427,14 @@ private fun TaskRow(
             }),
             indicator = {
                 PriorityIndicator(
-                    task.priority, grayscale = grayed,
+                    task.priority, grayscale = grayed, palette = palette,
                     showNumber = TaskLogic.showBadge(task.priority, settings),
                     showBar = TaskLogic.showBar(task.priority, settings),
                 )
             },
             checkbox = {
                 // Square checkbox at the far right: toggles crossed-out (task stays in the open list).
-                val boxColor = if (grayed) grayText else if (task.crossedOut) MaterialTheme.colorScheme.primary else Muted
+                val boxColor = if (grayed) accent else if (task.crossedOut) MaterialTheme.colorScheme.primary else Muted
                 Box(
                     Modifier.fillMaxSize().toggleable(
                         value = task.crossedOut, role = Role.Checkbox, onValueChange = { onToggleCrossedOut(task) },
@@ -369,14 +443,14 @@ private fun TaskRow(
                 ) {
                     Box(
                         Modifier.size(TaskRowMetrics.CHECKBOX_DP.dp).clip(RoundedCornerShape(3.dp))
-                            .background(if (task.crossedOut) (if (grayed) Color(TaskLogic.Gray.CHECK_FILL) else boxColor) else Color.Transparent)
-                            .border(2.dp, if (task.crossedOut && !grayed) boxColor else if (grayed) grayText else Muted, RoundedCornerShape(3.dp)),
+                            .background(if (task.crossedOut) (if (grayed) Color(palette.checkFill) else boxColor) else Color.Transparent)
+                            .border(2.dp, if (task.crossedOut && !grayed) boxColor else if (grayed) accent else Muted, RoundedCornerShape(3.dp)),
                         contentAlignment = Alignment.Center,
                     ) {
                         if (task.crossedOut) {
                             Icon(
                                 Icons.Filled.Check, null, Modifier.size(16.dp),
-                                tint = if (grayed) Color(TaskLogic.Gray.CHECKMARK) else MaterialTheme.colorScheme.onPrimary,
+                                tint = if (grayed) Color(palette.checkmark) else MaterialTheme.colorScheme.onPrimary,
                             )
                         }
                     }
@@ -407,14 +481,15 @@ private fun TaskRow(
 fun PriorityIndicator(
     priority: Int,
     grayscale: Boolean = false,
+    palette: TaskLogic.CrossedPalette = TaskLogic.crossedPalette(priority, dev.tasker2.domain.CrossedOutStyle.GRAY),
     showNumber: Boolean = true,
     showBar: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     if (!showNumber && !showBar) return
-    val color = if (grayscale) Color(TaskLogic.Gray.TEXT) else priorityColor(priority)
-    val badgeFill = if (grayscale) Color(TaskLogic.Gray.BADGE_FILL) else color.copy(alpha = 0.18f)
-    val track = if (grayscale) Color(TaskLogic.Gray.BAR_TRACK) else BadgeBg
+    val color = if (grayscale) Color(palette.accent) else priorityColor(priority)
+    val badgeFill = if (grayscale) Color(palette.badgeFill) else color.copy(alpha = 0.18f)
+    val track = if (grayscale) Color(palette.barTrack) else BadgeBg
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         if (showNumber) {
             Box(
@@ -449,6 +524,7 @@ private fun TaskRowLayout(
     modifier: Modifier,
     metrics: dev.tasker2.domain.RowMetrics,
     strikeColor: Color?,
+    strikeThicknessDp: Float,
     circle: @Composable () -> Unit,
     title: @Composable () -> Unit,
     notes: (@Composable () -> Unit)?,
@@ -494,7 +570,7 @@ private fun TaskRowLayout(
                 circleX.toFloat(), target.toFloat(), TaskRowMetrics.CIRCLE_DP.dp.toPx(),
                 checkX.toFloat(), target.toFloat(), TaskRowMetrics.CHECKBOX_DP.dp.toPx(),
             )?.let { span ->
-                val h = 2.dp.roundToPx()
+                val h = strikeThicknessDp.dp.roundToPx().coerceAtLeast(1)
                 m.measure(Constraints.fixed(span.length.roundToInt().coerceAtLeast(0), h)) to span
             }
         }

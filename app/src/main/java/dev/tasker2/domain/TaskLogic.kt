@@ -25,6 +25,38 @@ object TaskLogic {
         fun isGray(argb: Int): Boolean = ((argb shr 16) and 0xFF) == ((argb shr 8) and 0xFF) && ((argb shr 8) and 0xFF) == (argb and 0xFF)
     }
 
+    /** Share of the priority color kept in "Faded color" mode (the rest is gray). */
+    const val FADE_COLOR_SHARE = 0.22f
+
+    /** Blends [argb] into the neutral gray level [gray] keeping only [share] of the color. Opaque ARGB. */
+    fun fadeToward(argb: Int, gray: Int, share: Float = FADE_COLOR_SHARE): Int {
+        fun ch(c: Int) = Math.round(gray * (1 - share) + c * share).coerceIn(0, 255)
+        return (0xFF shl 24) or (ch((argb shr 16) and 0xFF) shl 16) or (ch((argb shr 8) and 0xFF) shl 8) or ch(argb and 0xFF)
+    }
+
+    /** Colors for every part of a crossed-out row. [accent] is the strike line, number, bar and checkbox border. */
+    data class CrossedPalette(val text: Int, val accent: Int, val badgeFill: Int, val barTrack: Int, val checkFill: Int, val checkmark: Int)
+
+    /**
+     * Gray mode, and any task without a priority: pure gray (R == G == B everywhere).
+     * Faded mode with a priority: the same grays with a strongly desaturated hint of the priority color (about 78% gray);
+     * the title stays gray.
+     */
+    fun crossedPalette(priority: Int, style: CrossedOutStyle): CrossedPalette {
+        if (style == CrossedOutStyle.GRAY || !hasPriority(priority)) {
+            return CrossedPalette(Gray.TEXT, Gray.TEXT, Gray.BADGE_FILL, Gray.BAR_TRACK, Gray.CHECK_FILL, Gray.CHECKMARK)
+        }
+        val c = priorityColorArgb(priority)
+        return CrossedPalette(
+            text = Gray.TEXT,
+            accent = fadeToward(c, Gray.TEXT and 0xFF),
+            badgeFill = Gray.BADGE_FILL,   // stays a dark neutral; the hint is in the number and border
+            barTrack = Gray.BAR_TRACK,
+            checkFill = fadeToward(c, Gray.CHECK_FILL and 0xFF),
+            checkmark = Gray.CHECKMARK,
+        )
+    }
+
     /** Whether the number badge / the bar are drawn for a task, given the display switches. */
     fun showBadge(priority: Int, settings: AppSettings): Boolean = hasPriority(priority) && settings.showPriorityNumber
     fun showBar(priority: Int, settings: AppSettings): Boolean = hasPriority(priority) && settings.showPriorityBar

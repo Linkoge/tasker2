@@ -7,6 +7,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -27,6 +28,19 @@ fun TaskerApp(vm: TaskViewModel = viewModel()) {
     // Keep the selected tab valid (e.g. after deleting a category).
     LaunchedEffect(cats) {
         if (cats.none { it.id == selectedCategoryId }) selectedCategoryId = cats.firstOrNull()?.id ?: -1L
+    }
+
+    val categoryController = remember(vm) {
+        CategoryTabController(
+            ops = object : CategoryOps {
+                override fun move(from: Int, to: Int) { vm.moveCategory(from, to) }
+                override fun rename(category: dev.tasker2.data.Category, name: String) { vm.renameCategory(category, name) }
+                override fun delete(category: dev.tasker2.data.Category) { vm.deleteCategory(category) }
+                override fun add(name: String, onAdded: (Long) -> Unit) { vm.addCategory(name, onAdded) }
+            },
+            selected = { selectedCategoryId },
+            select = { selectedCategoryId = it },
+        )
     }
 
     if (route != "main") BackHandler { route = "main" }
@@ -121,6 +135,7 @@ fun TaskerApp(vm: TaskViewModel = viewModel()) {
             onManageCategories = { route = "manage" },
             onOpenSettings = { route = "settings" },
             settings = settings,
+            categoryController = categoryController,
         )
     }
 }

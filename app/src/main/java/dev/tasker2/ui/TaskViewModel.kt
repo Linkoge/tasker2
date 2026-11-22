@@ -35,6 +35,9 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun addCategory(name: String) = launch { if (name.isNotBlank()) repo.addCategory(name) }
+    /** Like [addCategory] but reports the new id (used by the "+" tab button to select it). */
+    fun addCategory(name: String, onAdded: (Long) -> Unit) =
+        launch { if (name.isNotBlank()) onAdded(repo.addCategory(name)) }
     fun renameCategory(c: Category, name: String) = launch { repo.renameCategory(c, name) }
     fun deleteCategory(c: Category) = launch { repo.deleteCategory(c) }
     fun moveCategory(from: Int, to: Int) = launch { repo.moveCategory(from, to) }

@@ -29,6 +29,17 @@ import androidx.compose.ui.unit.sp
 import dev.tasker2.domain.AppSettings
 import dev.tasker2.domain.TaskRowMetrics
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.ui.graphics.Color
+import dev.tasker2.domain.CrossedOutStyle
+import dev.tasker2.domain.TaskLogic
 import androidx.compose.foundation.layout.heightIn
 import dev.tasker2.ui.theme.Muted
 
@@ -102,6 +113,8 @@ fun SettingsScreen(
             }
             SettingSwitch("Show priority number", settings.showPriorityNumber) { v -> onChange { it.copy(showPriorityNumber = v) } }
             SettingSwitch("Show priority bar", settings.showPriorityBar) { v -> onChange { it.copy(showPriorityBar = v) } }
+            StrikeThicknessSetting(settings, onChange)
+            CrossedStyleSetting(settings, onChange)
             OutlinedButton(onClick = onReset, modifier = Modifier.fillMaxWidth()) { Text("Reset to defaults") }
         }
     }
@@ -147,5 +160,50 @@ private fun SettingSwitch(label: String, checked: Boolean, onChecked: (Boolean) 
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(label, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
         Switch(checked = checked, onCheckedChange = onChecked)
+    }
+}
+
+@Composable
+private fun StrikeThicknessSetting(settings: AppSettings, onChange: ((AppSettings) -> AppSettings) -> Unit) {
+    val range = AppSettings.STRIKE_HALF_RANGE
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Cross-out line thickness", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            Text("${settings.strikeThicknessDp} dp", color = MaterialTheme.colorScheme.primary)
+        }
+        Slider(
+            value = settings.strikeHalfDp.toFloat(),
+            onValueChange = { v -> onChange { it.copy(strikeHalfDp = Math.round(v)) } },
+            valueRange = range.first.toFloat()..range.last.toFloat(),
+            steps = range.last - range.first - 1,
+        )
+        Box(Modifier.fillMaxWidth().height(24.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxWidth().height(settings.strikeThicknessDp.dp).background(Color(TaskLogic.Gray.TEXT)))
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CrossedStyleSetting(settings: AppSettings, onChange: ((AppSettings) -> AppSettings) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Crossed-out tasks", style = MaterialTheme.typography.titleMedium)
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            CrossedOutStyle.entries.forEachIndexed { i, style ->
+                SegmentedButton(
+                    selected = settings.crossedOutStyle == style,
+                    onClick = { onChange { it.copy(crossedOutStyle = style) } },
+                    shape = SegmentedButtonDefaults.itemShape(i, CrossedOutStyle.entries.size),
+                ) { Text(style.label) }
+            }
+        }
+        // Preview of a crossed-out priority 10 task in the chosen style.
+        val p = TaskLogic.crossedPalette(10, settings.crossedOutStyle)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(Modifier.size(28.dp).border(1.dp, Color(p.accent), RoundedCornerShape(8.dp)).background(Color(p.badgeFill), RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
+                Text("10", color = Color(p.accent), fontSize = 14.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+            }
+            Text("Crossed-out task", color = Color(p.text), fontSize = settings.listFontSp.sp)
+        }
     }
 }

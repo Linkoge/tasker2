@@ -2,6 +2,7 @@ package dev.tasker2.data
 
 import android.content.Context
 import dev.tasker2.domain.AppSettings
+import dev.tasker2.domain.CrossedOutStyle
 import dev.tasker2.domain.TaskRowMetrics
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,6 +35,8 @@ class SettingsRepository(private val store: IntStore) {
         taskGapDp = TaskRowMetrics.migrateLegacyGap(store.getInt(KEY_TASK_GAP, AppSettings.DEFAULT_TASK_GAP_DP)),
         showPriorityNumber = store.getInt(KEY_SHOW_NUMBER, 1) != 0,
         showPriorityBar = store.getInt(KEY_SHOW_BAR, 1) != 0,
+        strikeHalfDp = store.getInt(KEY_STRIKE_HALF_DP, AppSettings.DEFAULT_STRIKE_HALF_DP),
+        crossedOutStyle = CrossedOutStyle.fromId(store.getInt(KEY_CROSSED_STYLE, CrossedOutStyle.GRAY.ordinal)),
     ).normalized()
 
     fun update(change: (AppSettings) -> AppSettings) {
@@ -41,7 +44,9 @@ class SettingsRepository(private val store: IntStore) {
         store.putInts(mapOf(KEY_TAB_FONT to next.tabFontSp, KEY_LIST_FONT to next.listFontSp, KEY_TAB_GAP to next.tabGapSpaces,
             KEY_TASK_GAP to next.taskGapDp,
             KEY_SHOW_NUMBER to if (next.showPriorityNumber) 1 else 0,
-            KEY_SHOW_BAR to if (next.showPriorityBar) 1 else 0))
+            KEY_SHOW_BAR to if (next.showPriorityBar) 1 else 0,
+            KEY_STRIKE_HALF_DP to next.strikeHalfDp,
+            KEY_CROSSED_STYLE to next.crossedOutStyle.ordinal))
         state.value = next
     }
 
@@ -54,5 +59,7 @@ class SettingsRepository(private val store: IntStore) {
         const val KEY_TASK_GAP = "task_gap_dp"
         const val KEY_SHOW_NUMBER = "show_priority_number"
         const val KEY_SHOW_BAR = "show_priority_bar"
+        const val KEY_STRIKE_HALF_DP = "strike_half_dp"
+        const val KEY_CROSSED_STYLE = "crossed_out_style"
     }
 }
