@@ -94,3 +94,7 @@ unit tests (`--skip-tests` or `SKIP_TESTS=1` gives the fast build). The scripts 
 python -m pytest -q -m smoke    # project-structure smoke checks
 python -m pytest -q             # also the deploy script tests (disposable dirs, fake build)
 ```
+
+UI notes: category tabs have no ripple/pressed background (selection = text color + underline) and are
+spaced by the width of three spaces in the 15sp tab font. The Completed section is just an expand arrow
+(collapsed by default) with no background.

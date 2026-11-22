@@ -6,6 +6,11 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -166,23 +171,25 @@ fun MainScreen(
                 if (done.isNotEmpty()) {
                     item(key = "completed-header") {
                         Spacer(Modifier.height(12.dp))
-                        CardSection(top = true, bottom = !completedExpanded) {
-                            Row(
-                                Modifier.fillMaxWidth().clickable { completedExpanded = !completedExpanded }
-                                    .padding(horizontal = 20.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Spacer(Modifier.weight(1f))
-                                Icon(
-                                    if (completedExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                                    if (completedExpanded) "Collapse" else "Expand",
-                                )
-                            }
+                        // No background of any kind: only the arrow on the plain screen background.
+                        Row(
+                            Modifier.fillMaxWidth()
+                                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                                    completedExpanded = !completedExpanded
+                                }
+                                .padding(horizontal = 20.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Spacer(Modifier.weight(1f))
+                            Icon(
+                                if (completedExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                                if (completedExpanded) "Collapse" else "Expand",
+                            )
                         }
                     }
                     if (completedExpanded) {
                         items(done, key = { "done-${it.id}" }) { task ->
-                            CardSection(top = false, bottom = task == done.last()) {
+                            CardSection(top = task == done.first(), bottom = task == done.last()) {
                                 TaskRow(task, categories, onEditTask, onToggleComplete, onToggleCrossedOut, onMoveTask, onDeleteTask)
                             }
                         }
@@ -196,49 +203,52 @@ fun MainScreen(
 @Composable
 private fun CategoryTabs(categories: List<Category>, counts: Map<Long, Int>, selectedIndex: Int, onSelect: (Long) -> Unit) {
     val density = LocalDensity.current
-    // Measured width of each category name (without the count) for the indicator.
+    val measurer = rememberTextMeasurer()
+    val tabStyle = TextStyle(fontSize = TabLayout.FONT_SP.sp)
+    // Gap between adjacent tabs = width of three spaces in the tab font.
+    val gap = remember(measurer) {
+        with(density) { measurer.measure(TabLayout.gapText(), tabStyle).size.width.toDp() }
+    }
     val nameWidths = remember { mutableStateMapOf<Int, Dp>() }
-    ScrollableTabRow(
-        selectedTabIndex = selectedIndex,
-        edgePadding = 4.dp,
-        containerColor = MaterialTheme.colorScheme.background,
-        divider = {},
-        indicator = { positions ->
-            if (selectedIndex < positions.size) {
-                val pos = positions[selectedIndex]
-                val w = nameWidths[selectedIndex] ?: 0.dp
-                // Tab = 8dp padding + name + " count"; the indicator spans only the name.
-                val start = pos.left + 8.dp
-                Box(
-                    Modifier.fillMaxWidth().wrapContentSize(Alignment.BottomStart)
-                        .offset(x = start)
-                        .width(w)
-                        .height(3.dp)
-                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)),
-                )
-            }
-        },
+    // Plain scrolling row (no material Tab / TabRow: those add ripple, padding and a 90dp min width).
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(gap),
     ) {
         categories.forEachIndexed { i, cat ->
             val selected = i == selectedIndex
-            // Custom tab (not material Tab) so there is no 90dp minimum width and gaps stay compact.
             val color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-            CompositionLocalProvider(LocalContentColor provides color) {
-                Row(
-                    Modifier.selectable(selected = selected, role = Role.Tab, onClick = { onSelect(cat.id) })
-                        .padding(horizontal = 8.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+            Box(
+                Modifier.selectable(
+                    selected = selected, role = Role.Tab,
+                    interactionSource = remember { MutableInteractionSource() }, indication = null,
+                    onClick = { onSelect(cat.id) },
+                ),
+            ) {
+                Row(Modifier.padding(top = 12.dp, bottom = 15.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        cat.name, fontSize = 15.sp, maxLines = 1,
+                        cat.name, style = tabStyle, color = color, maxLines = 1,
                         onTextLayout = { nameWidths[i] = with(density) { it.size.width.toDp() } },
                     )
                     val n = counts[cat.id] ?: 0
-                    if (n > 0) Text(" $n", fontSize = 15.sp, maxLines = 1)
+                    if (n > 0) Text(" $n", style = tabStyle, color = color, maxLines = 1)
+                }
+                if (selected) {
+                    Box(
+                        Modifier.align(Alignment.BottomStart).width(nameWidths[i] ?: 0.dp).height(3.dp)
+                            .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)),
+                    )
                 }
             }
         }
     }
+}
+
+/** Tab layout constants shared by the UI and tests. */
+object TabLayout {
+    const val FONT_SP = 15
+    const val GAP_SPACES = 3
+    fun gapText(): String = " ".repeat(GAP_SPACES)
 }
 
 /** Draws a slice of a rounded card so several LazyColumn items look like one card. */
