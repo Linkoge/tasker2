@@ -10,7 +10,7 @@ data class AppSettings(
     val showPriorityBar: Boolean = true,
     /** Strike line thickness in half-dp steps (4 = 2dp), so it persists as an int. */
     val strikeHalfDp: Int = DEFAULT_STRIKE_HALF_DP,
-    val crossedOutStyle: CrossedOutStyle = CrossedOutStyle.GRAY,
+    val crossedOutStyle: CrossedOutStyle = CrossedOutStyle.FADED,
 ) {
     val strikeThicknessDp: Float get() = strikeHalfDp / 2f
 
@@ -35,8 +35,8 @@ data class AppSettings(
         const val DEFAULT_TAB_GAP_SPACES = 6
         /** Gap between task rows; 0 is the 1.4/1.5 look (the middle of the slider), negative tightens, positive loosens. */
         const val DEFAULT_TASK_GAP_DP = 0
-        /** 2dp, the 1.6 thickness. */
-        const val DEFAULT_STRIKE_HALF_DP = 4
+        /** 1dp, the thinnest line. */
+        const val DEFAULT_STRIKE_HALF_DP = 2
         const val NOTES_RATIO = 0.75f
         val TAB_FONT_RANGE = 11..24
         val LIST_FONT_RANGE = 12..24
@@ -52,6 +52,6 @@ enum class CrossedOutStyle(val label: String) {
     GRAY("Gray"), FADED("Faded color");
 
     companion object {
-        fun fromId(id: Int): CrossedOutStyle = entries.getOrElse(id) { GRAY }
+        fun fromId(id: Int): CrossedOutStyle = entries.getOrElse(id) { FADED }
     }
 }

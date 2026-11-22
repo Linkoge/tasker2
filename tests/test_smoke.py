@@ -46,3 +46,13 @@ def test_no_keystore_or_apk_committed_paths_ignored():
     ignore = (ROOT / ".gitignore").read_text().split()
     for pattern in ["dist/", "*.jks", "keystore.properties", "local.properties"]:
         assert pattern in ignore, pattern
+
+
+@pytest.mark.smoke
+def test_v18_save_in_header_and_defaults():
+    for rel in ["ui/TaskEditorScreen.kt", "ui/BulkAddScreen.kt"]:
+        t = (SRC / rel).read_text()
+        assert t.count('Text("Save"') == 1 and "actions = {" in t.split('Text("Save"')[0].split("topBar")[1], rel
+    s = (SRC / "domain/AppSettings.kt").read_text()
+    assert "crossedOutStyle: CrossedOutStyle = CrossedOutStyle.FADED" in s
+    assert "DEFAULT_STRIKE_HALF_DP = 2" in s

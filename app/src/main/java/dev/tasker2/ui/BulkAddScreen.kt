@@ -27,6 +27,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -97,6 +98,13 @@ fun BulkAddScreen(
             TopAppBar(
                 title = { Text("New tasks") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                actions = {
+                    TextButton(
+                        onClick = { onSave(categoryId, toCreate) },
+                        enabled = toCreate.isNotEmpty() && categories.any { it.id == categoryId },
+                        modifier = Modifier.testTag("save-button"),
+                    ) { Text("Save", style = MaterialTheme.typography.titleMedium) }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
@@ -149,14 +157,6 @@ fun BulkAddScreen(
                 )
                 PriorityEditor(state.current.priority.toFloat()) { state = state.setPriority(Math.round(it)) }
                 CategoryDropdown(categories, categoryId) { categoryId = it }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                    OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f)) { Text("Cancel") }
-                    Button(
-                        onClick = { onSave(categoryId, toCreate) },
-                        enabled = toCreate.isNotEmpty() && categories.any { it.id == categoryId },
-                        modifier = Modifier.weight(1f),
-                    ) { Text("Save") }
-                }
             }
         }
     }

@@ -36,7 +36,7 @@ class SettingsRepository(private val store: IntStore) {
         showPriorityNumber = store.getInt(KEY_SHOW_NUMBER, 1) != 0,
         showPriorityBar = store.getInt(KEY_SHOW_BAR, 1) != 0,
         strikeHalfDp = store.getInt(KEY_STRIKE_HALF_DP, AppSettings.DEFAULT_STRIKE_HALF_DP),
-        crossedOutStyle = CrossedOutStyle.fromId(store.getInt(KEY_CROSSED_STYLE, CrossedOutStyle.GRAY.ordinal)),
+        crossedOutStyle = CrossedOutStyle.fromId(store.getInt(KEY_CROSSED_STYLE, CrossedOutStyle.FADED.ordinal)),
     ).normalized()
 
     fun update(change: (AppSettings) -> AppSettings) {

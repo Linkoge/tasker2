@@ -48,7 +48,8 @@ class CrossedStyleTest {
 
     @Test fun thicknessDefaultRangeAndPersistence() {
         assertEquals(2f, AppSettings().strikeThicknessDp, 0f)
-        assertEquals(CrossedOutStyle.GRAY, AppSettings().crossedOutStyle)
+        assertEquals(CrossedOutStyle.FADED, AppSettings().crossedOutStyle)
+        assertEquals(1f, AppSettings().strikeThicknessDp, 0f)
         assertEquals(1f, AppSettings(strikeHalfDp = -5).normalized().strikeThicknessDp, 0f)
         assertEquals(6f, AppSettings(strikeHalfDp = 99).normalized().strikeThicknessDp, 0f)
         assertEquals(2..12, AppSettings.STRIKE_HALF_RANGE)
@@ -65,6 +66,6 @@ class CrossedStyleTest {
     }
 
     @Test fun unknownStoredStyleFallsBackToGray() {
-        assertEquals(CrossedOutStyle.GRAY, SettingsRepository(StyleMemStore(mutableMapOf(SettingsRepository.KEY_CROSSED_STYLE to 9))).settings.value.crossedOutStyle)
+        assertEquals(CrossedOutStyle.FADED, SettingsRepository(StyleMemStore(mutableMapOf(SettingsRepository.KEY_CROSSED_STYLE to 9))).settings.value.crossedOutStyle)
     }
 }

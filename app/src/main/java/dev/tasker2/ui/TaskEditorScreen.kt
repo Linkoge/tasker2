@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
+import androidx.compose.ui.platform.testTag
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
@@ -84,6 +85,11 @@ fun TaskEditorScreen(
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
                 },
                 actions = {
+                    TextButton(
+                        onClick = { onSave(TaskDraft(title.trim(), notes.trim(), p, categoryId, completed)) },
+                        enabled = title.isNotBlank() && categories.any { it.id == categoryId },
+                        modifier = Modifier.testTag("save-button"),
+                    ) { Text("Save", style = MaterialTheme.typography.titleMedium) }
                     if (onDelete != null) {
                         IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Filled.Delete, "Delete task") }
                     }
@@ -115,14 +121,6 @@ fun TaskEditorScreen(
                     Text("Completed")
                 }
             }
-
-            Button(
-                onClick = {
-                    onSave(TaskDraft(title.trim(), notes.trim(), p, categoryId, completed))
-                },
-                enabled = title.isNotBlank() && categories.any { it.id == categoryId },
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text("Save") }
         }
     }
 
