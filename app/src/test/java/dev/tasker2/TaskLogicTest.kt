@@ -43,11 +43,11 @@ class TaskLogicTest {
     }
 
     @Test
-    fun urgencyColorGoesFromCoolToRed() {
+    fun urgencyColorGoesFromGrayYellowToRed() {
         fun rgb(p: Int) = TaskLogic.priorityColorArgb(p).let { Triple((it shr 16) and 0xFF, (it shr 8) and 0xFF, it and 0xFF) }
         val low = rgb(1)
         val high = rgb(10)
-        assertTrue("low priority should be blue-ish", low.third > low.first)
+        assertTrue("low priority should be gray/yellow, not blue", low.first > 200 && low.second > 200 && low.third <= low.first)
         assertTrue("high priority should be red", high.first > 200 && high.second < 80 && high.third < 80)
         assertNotEquals(rgb(5), rgb(6))
     }

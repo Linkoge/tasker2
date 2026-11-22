@@ -10,13 +10,15 @@ Dark theme with category tabs, similar in look to Google Tasks.
   Use **⋮ → Manage categories** to add, rename, delete, and reorder them (↑/↓ arrows).
   The tab order is saved in the database. Deleting a category also deletes its tasks.
 - **Tasks**: add with the **+** button. Tap a task to edit its title, notes, priority, category or
-  completed state, or to delete it. Tap the circle to complete a task. Completed tasks go to a
-  collapsible **Completed (N)** section; tap the check mark to reopen one.
+  completed state, or to delete it. Tap the circle to complete a task; long-press the circle to toggle a
+  **crossed-out** state (strikethrough, grayed, stays in the open list). Completed tasks go to a
+  collapsed-by-default section shown only as an arrow on the right; tap it to expand, tap the check mark to reopen one.
+  An empty category shows nothing.
 - **Move a task** to another category: long-press it and pick **Move to…**, or change the
   Category dropdown in the editor.
 - **Priority** from 1 to 10 (10 = most urgent, default 5). Open tasks are sorted highest priority
   first; tasks with the same priority are ordered by creation time (oldest first). Each row shows the
-  priority number and an urgency bar on the right. The color runs from blue (low) to red (high).
+  priority number and an urgency bar on the right. The color runs from gray-yellow (low) to red (high); the theme is dark orange.
 
 ## Project layout
 

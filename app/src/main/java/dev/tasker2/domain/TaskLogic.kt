@@ -53,14 +53,17 @@ object TaskLogic {
     fun setCompleted(task: Task, completed: Boolean, now: Long = System.currentTimeMillis()): Task =
         task.copy(completed = completed, completedAt = if (completed) now else null)
 
+    /** Toggle the crossed-out state; the task stays open/completed as it was. */
+    fun toggleCrossedOut(task: Task): Task = task.copy(crossedOut = !task.crossedOut)
+
     /**
-     * Urgency color as ARGB for priority 1..10: hue goes from cool blue (1) through green/yellow
-     * to red (10).
+     * Urgency color as ARGB for priority 1..10: goes from gray-yellow (1) through orange to red (10).
      */
     fun priorityColorArgb(priority: Int): Int {
         val t = (clampPriority(priority) - 1) / 9f
-        val hue = 210f * (1f - t)
-        return hsvToArgb(hue, 0.75f, 0.95f)
+        val hue = 52f * (1f - t)
+        val sat = 0.25f + 0.65f * t
+        return hsvToArgb(hue, sat, 0.95f)
     }
 
     private fun hsvToArgb(h: Float, s: Float, v: Float): Int {

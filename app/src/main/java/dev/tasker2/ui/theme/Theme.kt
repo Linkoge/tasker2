@@ -7,15 +7,15 @@ import androidx.compose.ui.graphics.Color
 
 val Background = Color(0xFF28292C)
 val CardColor = Color(0xFF1E1F21)
-val AccentBlue = Color(0xFFA8C7FA)
-val FabBlue = Color(0xFF2350B0)
+val AccentOrange = Color(0xFFFF9A3C)
+val FabOrange = Color(0xFFC25A00)
 val Muted = Color(0xFF9AA0A6)
 val BadgeBg = Color(0xFF3C3D41)
 
 private val colors = darkColorScheme(
-    primary = AccentBlue,
-    onPrimary = Color(0xFF062E6F),
-    primaryContainer = FabBlue,
+    primary = AccentOrange,
+    onPrimary = Color(0xFF3A1A00),
+    primaryContainer = FabOrange,
     onPrimaryContainer = Color.White,
     background = Background,
     onBackground = Color(0xFFE3E3E3),

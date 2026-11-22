@@ -53,6 +53,8 @@ class TaskRepository(private val dao: TaskDao) {
 
     suspend fun setCompleted(task: Task, completed: Boolean) = dao.updateTask(TaskLogic.setCompleted(task, completed))
 
+    suspend fun toggleCrossedOut(task: Task) = dao.updateTask(TaskLogic.toggleCrossedOut(task))
+
     suspend fun moveTask(task: Task, categoryId: Long) {
         if (task.categoryId == categoryId) return
         dao.updateTask(TaskLogic.moveToCategory(task, categoryId))

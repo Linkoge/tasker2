@@ -45,6 +45,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -78,6 +87,7 @@ fun MainScreen(
     onAddTask: () -> Unit,
     onEditTask: (Task) -> Unit,
     onToggleComplete: (Task) -> Unit,
+    onToggleCrossedOut: (Task) -> Unit,
     onMoveTask: (Task, Long) -> Unit,
     onDeleteTask: (Task) -> Unit,
     onManageCategories: () -> Unit,
@@ -138,22 +148,19 @@ fun MainScreen(
                 contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = 12.dp, bottom = 96.dp),
                 verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
-                item(key = "header") {
-                    CardSection(top = true, bottom = open.isEmpty()) {
+                if (open.isNotEmpty()) item(key = "header") {
+                    CardSection(top = true, bottom = false) {
                         Text(
                             current.name,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = if (open.isEmpty()) 8.dp else 4.dp),
+                            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 4.dp),
                         )
-                        if (open.isEmpty()) {
-                            Text("No open tasks", color = Muted, modifier = Modifier.padding(start = 20.dp, bottom = 20.dp))
-                        }
                     }
                 }
                 items(open, key = { "open-${it.id}" }) { task ->
                     CardSection(top = false, bottom = task == open.last()) {
-                        TaskRow(task, categories, onEditTask, onToggleComplete, onMoveTask, onDeleteTask)
+                        TaskRow(task, categories, onEditTask, onToggleComplete, onToggleCrossedOut, onMoveTask, onDeleteTask)
                     }
                 }
                 if (done.isNotEmpty()) {
@@ -162,10 +169,10 @@ fun MainScreen(
                         CardSection(top = true, bottom = !completedExpanded) {
                             Row(
                                 Modifier.fillMaxWidth().clickable { completedExpanded = !completedExpanded }
-                                    .padding(horizontal = 20.dp, vertical = 20.dp),
+                                    .padding(horizontal = 20.dp, vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text("Completed (${done.size})", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                                Spacer(Modifier.weight(1f))
                                 Icon(
                                     if (completedExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
                                     if (completedExpanded) "Collapse" else "Expand",
@@ -176,7 +183,7 @@ fun MainScreen(
                     if (completedExpanded) {
                         items(done, key = { "done-${it.id}" }) { task ->
                             CardSection(top = false, bottom = task == done.last()) {
-                                TaskRow(task, categories, onEditTask, onToggleComplete, onMoveTask, onDeleteTask)
+                                TaskRow(task, categories, onEditTask, onToggleComplete, onToggleCrossedOut, onMoveTask, onDeleteTask)
                             }
                         }
                     }
@@ -188,39 +195,46 @@ fun MainScreen(
 
 @Composable
 private fun CategoryTabs(categories: List<Category>, counts: Map<Long, Int>, selectedIndex: Int, onSelect: (Long) -> Unit) {
+    val density = LocalDensity.current
+    // Measured width of each category name (without the count) for the indicator.
+    val nameWidths = remember { mutableStateMapOf<Int, Dp>() }
     ScrollableTabRow(
         selectedTabIndex = selectedIndex,
-        edgePadding = 8.dp,
+        edgePadding = 4.dp,
         containerColor = MaterialTheme.colorScheme.background,
         divider = {},
         indicator = { positions ->
             if (selectedIndex < positions.size) {
-                TabRowDefaults.PrimaryIndicator(
-                    modifier = Modifier.tabIndicatorOffset(positions[selectedIndex]),
-                    width = 64.dp,
-                    color = MaterialTheme.colorScheme.primary,
+                val pos = positions[selectedIndex]
+                val w = nameWidths[selectedIndex] ?: 0.dp
+                // Tab = 8dp padding + name + " count"; the indicator spans only the name.
+                val start = pos.left + 8.dp
+                Box(
+                    Modifier.fillMaxWidth().wrapContentSize(Alignment.BottomStart)
+                        .offset(x = start)
+                        .width(w)
+                        .height(3.dp)
+                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)),
                 )
             }
         },
     ) {
         categories.forEachIndexed { i, cat ->
             val selected = i == selectedIndex
-            Tab(
-                selected = selected,
-                onClick = { onSelect(cat.id) },
-                selectedContentColor = MaterialTheme.colorScheme.primary,
-                unselectedContentColor = MaterialTheme.colorScheme.onSurface,
-            ) {
-                Row(Modifier.padding(horizontal = 6.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(cat.name, fontSize = 17.sp, maxLines = 1)
+            // Custom tab (not material Tab) so there is no 90dp minimum width and gaps stay compact.
+            val color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+            CompositionLocalProvider(LocalContentColor provides color) {
+                Row(
+                    Modifier.selectable(selected = selected, role = Role.Tab, onClick = { onSelect(cat.id) })
+                        .padding(horizontal = 8.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        cat.name, fontSize = 15.sp, maxLines = 1,
+                        onTextLayout = { nameWidths[i] = with(density) { it.size.width.toDp() } },
+                    )
                     val n = counts[cat.id] ?: 0
-                    if (n > 0) {
-                        Spacer(Modifier.width(6.dp))
-                        Box(
-                            Modifier.clip(CircleShape).background(BadgeBg).padding(horizontal = 7.dp, vertical = 1.dp),
-                            contentAlignment = Alignment.Center,
-                        ) { Text("$n", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface) }
-                    }
+                    if (n > 0) Text(" $n", fontSize = 15.sp, maxLines = 1)
                 }
             }
         }
@@ -248,9 +262,11 @@ private fun TaskRow(
     categories: List<Category>,
     onEdit: (Task) -> Unit,
     onToggleComplete: (Task) -> Unit,
+    onToggleCrossedOut: (Task) -> Unit,
     onMove: (Task, Long) -> Unit,
     onDelete: (Task) -> Unit,
 ) {
+    val grayed = task.completed || task.crossedOut
     var menuOpen by remember { mutableStateOf(false) }
     var moveMenuOpen by remember { mutableStateOf(false) }
     Box {
@@ -260,7 +276,13 @@ private fun TaskRow(
                 .padding(start = 8.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = { onToggleComplete(task) }) {
+            Box(
+                Modifier.size(48.dp).clip(CircleShape).combinedClickable(
+                    onClick = { onToggleComplete(task) },
+                    onLongClick = { onToggleCrossedOut(task) },
+                ),
+                contentAlignment = Alignment.Center,
+            ) {
                 if (task.completed) {
                     Icon(Icons.Filled.Check, "Mark not completed", tint = MaterialTheme.colorScheme.primary)
                 } else {
@@ -271,14 +293,14 @@ private fun TaskRow(
                 Text(
                     task.title,
                     fontSize = 17.sp,
-                    color = if (task.completed) Muted else MaterialTheme.colorScheme.onSurface,
-                    textDecoration = if (task.completed) TextDecoration.LineThrough else null,
+                    color = if (grayed) Muted else MaterialTheme.colorScheme.onSurface,
+                    textDecoration = if (grayed) TextDecoration.LineThrough else null,
                 )
                 if (task.notes.isNotBlank()) {
                     Text(task.notes, fontSize = 13.sp, color = Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
-            PriorityIndicator(task.priority, dimmed = task.completed)
+            PriorityIndicator(task.priority, dimmed = grayed)
         }
         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
             DropdownMenuItem(text = { Text("Edit") }, onClick = { menuOpen = false; onEdit(task) })
@@ -299,7 +321,7 @@ private fun TaskRow(
     }
 }
 
-/** Priority number badge plus a vertical urgency bar filled proportionally, colored cool → red. */
+/** Priority number badge plus a vertical urgency bar filled proportionally, colored gray-yellow → red. */
 @Composable
 fun PriorityIndicator(priority: Int, dimmed: Boolean = false, modifier: Modifier = Modifier) {
     val color = priorityColor(priority).let { if (dimmed) it.copy(alpha = 0.45f) else it }

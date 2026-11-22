@@ -36,6 +36,8 @@ data class Task(
     val completed: Boolean = false,
     @ColumnInfo(name = "created_at") val createdAt: Long = System.currentTimeMillis(),
     @ColumnInfo(name = "completed_at") val completedAt: Long? = null,
+    /** "Crossed out": struck through and grayed, but the task stays in the open list. */
+    @ColumnInfo(name = "crossed_out", defaultValue = "0") val crossedOut: Boolean = false,
 ) {
     companion object {
         const val MIN_PRIORITY = 1

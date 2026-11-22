@@ -92,6 +92,7 @@ fun TaskerApp(vm: TaskViewModel = viewModel()) {
             onAddTask = { if (selectedCategoryId >= 0) route = "new:$selectedCategoryId" },
             onEditTask = { route = "edit:${it.id}" },
             onToggleComplete = { t -> vm.setCompleted(t, !t.completed) },
+            onToggleCrossedOut = vm::toggleCrossedOut,
             onMoveTask = vm::moveTask,
             onDeleteTask = vm::deleteTask,
             onManageCategories = { route = "manage" },

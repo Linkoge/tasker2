@@ -3,5 +3,9 @@
         <item name="android:windowBackground">#FF28292C</item>
         <item name="android:statusBarColor">#FF28292C</item>
         <item name="android:navigationBarColor">#FF1F1F21</item>
+        <item name="android:colorPrimary">#FFC25A00</item>
+        <item name="android:colorPrimaryDark">#FF28292C</item>
+        <item name="android:colorAccent">#FFFF9A3C</item>
+        <item name="android:colorControlActivated">#FFFF9A3C</item>
     </style>
 </resources>

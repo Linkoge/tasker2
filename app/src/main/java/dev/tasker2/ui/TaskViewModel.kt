@@ -34,6 +34,7 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         launch { if (title.isNotBlank()) repo.addTask(categoryId, title, notes, priority) }
     fun updateTask(task: Task) = launch { repo.updateTask(task) }
     fun setCompleted(task: Task, completed: Boolean) = launch { repo.setCompleted(task, completed) }
+    fun toggleCrossedOut(task: Task) = launch { repo.toggleCrossedOut(task) }
     fun moveTask(task: Task, categoryId: Long) = launch { repo.moveTask(task, categoryId) }
     fun deleteTask(task: Task) = launch { repo.deleteTask(task) }
 
