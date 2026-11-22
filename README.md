@@ -88,6 +88,23 @@ You can override these environment variables: `TASKER2_APK_TARGET` (publish path
 `TASKER2_BUILD_CMD` and `TASKER2_BUILT_APK`. Running `scripts/build_apk.sh` by hand without flags still runs the
 unit tests (`--skip-tests` or `SKIP_TESTS=1` gives the fast build). The scripts never restart services and never install to devices.
 
+### GitHub publish (after the APK is published)
+
+After a successful, checked deploy, `scripts/deploy.sh` runs `scripts/deploy/github.sh`:
+
+1. `git push origin main` (plain fast-forward; never forced, nothing is ever deleted remotely).
+2. Creates tag `v<versionName>` on HEAD if missing and pushes it. A tag that already exists elsewhere is never moved (warning, no release).
+3. Creates a GitHub Release `v<versionName>` with `tasker2-v<versionName>.apk` attached and the version's entry from
+   `CHANGELOG.md` as notes. If the release exists, only a missing asset is uploaded; releases are never deleted.
+   Uses `gh` when installed and logged in (or `GH_TOKEN`/`GITHUB_TOKEN` set), otherwise curl with `GITHUB_TOKEN` (or `GH_TOKEN`).
+
+Everything here is non-fatal: with no credentials, no network or a rejected push it prints
+`deploy: github: skipped/failed: <reason>` and the deploy still exits 0 (the APK is not rolled back). The whole step is
+limited to 40 s (`TASKER2_GITHUB_BUDGET`, per command `TASKER2_GITHUB_STEP_MAX`). Set `TASKER2_GITHUB_PUBLISH=0` to disable it.
+Pushing needs SSH access to `origin`; the release needs `gh auth login` or a token with `contents: write` on the repo.
+APKs (`dist/` is git-ignored) only go to Releases, never into git history. The deploy tests disable the step by default and
+test it with fake `git`/`gh`/`curl`.
+
 ## Versioning
 
 The current version is shown in the app's ⋮ menu (disabled "Version x.y" item). For each release: edit
