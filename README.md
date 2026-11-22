@@ -122,7 +122,7 @@ python -m pytest -q             # also the deploy script tests (disposable dirs,
 - **Settings** (⋮ → Settings), saved in SharedPreferences and applied immediately: category tab font size (11–24sp, default 15),
   task list font size (12–24sp, default 17; notes scale proportionally), and the gap between tabs in spaces (1–12, default 6,
   measured at the current tab font size). Each control shows its value and a live preview; **Reset to defaults** restores them.
-  Logic is in `domain/AppSettings.kt` and `data/SettingsRepository.kt`.
+  Also: gap between task rows (0–24dp slider, default 0 = unchanged) and two switches, *Show priority number* and *Show priority bar* (both default on; tasks without priority show neither). Crossed-out rows are drawn in pure neutral grays only (`TaskLogic.Gray`). Logic is in `domain/AppSettings.kt` and `data/SettingsRepository.kt`.
 - **+++ screen layout**: the whole form is one scroll container with `imePadding`, and the focused title is brought into view with
   its neighbours, so the keyboard can no longer squeeze the title list away. Enter/Next moves to the next title.
 

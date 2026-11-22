@@ -30,11 +30,17 @@ class SettingsRepository(private val store: IntStore) {
         tabFontSp = store.getInt(KEY_TAB_FONT, AppSettings.DEFAULT_TAB_FONT_SP),
         listFontSp = store.getInt(KEY_LIST_FONT, AppSettings.DEFAULT_LIST_FONT_SP),
         tabGapSpaces = store.getInt(KEY_TAB_GAP, AppSettings.DEFAULT_TAB_GAP_SPACES),
+        taskGapDp = store.getInt(KEY_TASK_GAP, AppSettings.DEFAULT_TASK_GAP_DP),
+        showPriorityNumber = store.getInt(KEY_SHOW_NUMBER, 1) != 0,
+        showPriorityBar = store.getInt(KEY_SHOW_BAR, 1) != 0,
     ).normalized()
 
     fun update(change: (AppSettings) -> AppSettings) {
         val next = change(state.value).normalized()
-        store.putInts(mapOf(KEY_TAB_FONT to next.tabFontSp, KEY_LIST_FONT to next.listFontSp, KEY_TAB_GAP to next.tabGapSpaces))
+        store.putInts(mapOf(KEY_TAB_FONT to next.tabFontSp, KEY_LIST_FONT to next.listFontSp, KEY_TAB_GAP to next.tabGapSpaces,
+            KEY_TASK_GAP to next.taskGapDp,
+            KEY_SHOW_NUMBER to if (next.showPriorityNumber) 1 else 0,
+            KEY_SHOW_BAR to if (next.showPriorityBar) 1 else 0))
         state.value = next
     }
 
@@ -44,5 +50,8 @@ class SettingsRepository(private val store: IntStore) {
         const val KEY_TAB_FONT = "tab_font_sp"
         const val KEY_LIST_FONT = "list_font_sp"
         const val KEY_TAB_GAP = "tab_gap_spaces"
+        const val KEY_TASK_GAP = "task_gap_dp"
+        const val KEY_SHOW_NUMBER = "show_priority_number"
+        const val KEY_SHOW_BAR = "show_priority_bar"
     }
 }

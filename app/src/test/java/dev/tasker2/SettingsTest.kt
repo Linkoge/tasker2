@@ -4,6 +4,8 @@ import dev.tasker2.data.IntStore
 import dev.tasker2.data.SettingsRepository
 import dev.tasker2.domain.AppSettings
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 private class MemStore(val map: MutableMap<String, Int> = mutableMapOf()) : IntStore {
@@ -54,6 +56,22 @@ class SettingsTest {
         repo.update { AppSettings(24, 24, 12) }
         repo.reset()
         assertEquals(AppSettings(), repo.settings.value)
+        assertEquals(AppSettings(), SettingsRepository(store).settings.value)
+    }
+
+    @Test fun newSettingsDefaultsPersistenceAndReset() {
+        val d = AppSettings()
+        assertEquals(0, d.taskGapDp); assertTrue(d.showPriorityNumber); assertTrue(d.showPriorityBar)
+        val store = MemStore()
+        val repo = SettingsRepository(store)
+        repo.update { it.copy(taskGapDp = 10, showPriorityNumber = false, showPriorityBar = false) }
+        val again = SettingsRepository(store).settings.value
+        assertEquals(10, again.taskGapDp); assertFalse(again.showPriorityNumber); assertFalse(again.showPriorityBar)
+        repo.update { it.copy(taskGapDp = 99) }
+        assertEquals(24, repo.settings.value.taskGapDp)
+        repo.update { it.copy(taskGapDp = -3) }
+        assertEquals(0, repo.settings.value.taskGapDp)
+        repo.reset()
         assertEquals(AppSettings(), SettingsRepository(store).settings.value)
     }
 }

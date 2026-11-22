@@ -194,7 +194,7 @@ fun MainScreen(
 
             LazyColumn(
                 contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = 12.dp, bottom = 96.dp),
-                verticalArrangement = Arrangement.spacedBy(0.dp),
+                verticalArrangement = Arrangement.spacedBy(settings.taskGapDp.dp),
             ) {
                 if (open.isNotEmpty()) item(key = "header") {
                     CardSection(top = true, bottom = false) {
@@ -342,33 +342,35 @@ private fun TaskRow(
                 contentAlignment = Alignment.Center,
             ) {
                 if (task.completed) {
-                    Icon(Icons.Filled.Check, "Mark not completed", tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Filled.Check, "Mark not completed", tint = if (grayed) Color(TaskLogic.Gray.TEXT) else MaterialTheme.colorScheme.primary)
                 } else {
-                    Box(Modifier.size(22.dp).border(2.dp, Muted, CircleShape))
+                    Box(Modifier.size(22.dp).border(2.dp, if (grayed) Color(TaskLogic.Gray.TEXT) else Muted, CircleShape))
                 }
             }
             Column(Modifier.weight(1f).padding(start = 4.dp, end = 8.dp, top = 6.dp, bottom = 6.dp)) {
                 StrikeText(
                     task.title,
                     fontSize = settings.listFontSp.sp,
-                    color = if (grayed) Muted else MaterialTheme.colorScheme.onSurface,
+                    color = if (grayed) Color(TaskLogic.Gray.TEXT) else MaterialTheme.colorScheme.onSurface,
                     struck = grayed,
                 )
                 if (task.notes.isNotBlank()) {
                     Text(task.notes, fontSize = settings.notesFontSp.sp, color = Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
-            if (TaskLogic.hasPriority(task.priority)) {
-                PriorityIndicator(task.priority, alpha = TaskLogic.priorityAlpha(task))
-            }
+            PriorityIndicator(
+                task.priority, grayscale = grayed,
+                showNumber = TaskLogic.showBadge(task.priority, settings),
+                showBar = TaskLogic.showBar(task.priority, settings),
+            )
             // Square checkbox at the far right: toggles crossed-out (task stays in the open list).
             Checkbox(
                 checked = task.crossedOut,
                 onCheckedChange = { onToggleCrossedOut(task) },
                 colors = CheckboxDefaults.colors(
-                    checkedColor = MaterialTheme.colorScheme.primary,
-                    uncheckedColor = Muted,
-                    checkmarkColor = MaterialTheme.colorScheme.onPrimary,
+                    checkedColor = if (grayed) Color(TaskLogic.Gray.CHECK_FILL) else MaterialTheme.colorScheme.primary,
+                    uncheckedColor = if (grayed) Color(TaskLogic.Gray.TEXT) else Muted,
+                    checkmarkColor = if (grayed) Color(TaskLogic.Gray.CHECKMARK) else MaterialTheme.colorScheme.onPrimary,
                 ),
             )
         }
@@ -391,22 +393,35 @@ private fun TaskRow(
     }
 }
 
-/** Priority number badge plus (colored, only dimmed to [alpha], never gray)  a vertical urgency bar filled proportionally, colored gray-yellow → red. */
+/** Priority number badge and/or vertical urgency bar. [grayscale] draws everything in neutral grays (crossed-out rows). */
 @Composable
-fun PriorityIndicator(priority: Int, alpha: Float = 1f, modifier: Modifier = Modifier) {
-    val color = priorityColor(priority).let { if (alpha < 1f) it.copy(alpha = alpha) else it }
+fun PriorityIndicator(
+    priority: Int,
+    grayscale: Boolean = false,
+    showNumber: Boolean = true,
+    showBar: Boolean = true,
+    modifier: Modifier = Modifier,
+) {
+    if (!showNumber && !showBar) return
+    val color = if (grayscale) Color(TaskLogic.Gray.TEXT) else priorityColor(priority)
+    val badgeFill = if (grayscale) Color(TaskLogic.Gray.BADGE_FILL) else color.copy(alpha = 0.18f)
+    val track = if (grayscale) Color(TaskLogic.Gray.BAR_TRACK) else BadgeBg
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)).background(color.copy(alpha = 0.18f))
-                .border(1.dp, color, RoundedCornerShape(8.dp)),
-            contentAlignment = Alignment.Center,
-        ) { Text("$priority", color = color, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
-        Spacer(Modifier.width(8.dp))
-        Box(
-            Modifier.width(6.dp).height(32.dp).clip(RoundedCornerShape(3.dp)).background(BadgeBg),
-            contentAlignment = Alignment.BottomCenter,
-        ) {
-            Box(Modifier.fillMaxWidth().height((32f * priority / Task.MAX_PRIORITY).dp).background(color))
+        if (showNumber) {
+            Box(
+                Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)).background(badgeFill)
+                    .border(1.dp, color, RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center,
+            ) { Text("$priority", color = color, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
+        }
+        if (showNumber && showBar) Spacer(Modifier.width(8.dp))
+        if (showBar) {
+            Box(
+                Modifier.width(6.dp).height(32.dp).clip(RoundedCornerShape(3.dp)).background(track),
+                contentAlignment = Alignment.BottomCenter,
+            ) {
+                Box(Modifier.fillMaxWidth().height((32f * priority / Task.MAX_PRIORITY).dp).background(color))
+            }
         }
     }
 }

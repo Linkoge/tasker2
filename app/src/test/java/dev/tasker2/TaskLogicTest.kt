@@ -145,11 +145,24 @@ class NoPriorityAndRowControlsTest {
         assertEquals(listOf(reopened), TaskLogic.sortOpen(listOf(reopened)))
     }
 
-    @Test fun crossedOutPriorityIsDimmedNotGray() {
-        assertEquals(1f, TaskLogic.priorityAlpha(t(1, 8)), 0f)
-        assertEquals(0.55f, TaskLogic.priorityAlpha(t(1, 8, crossed = true)), 0f)
+    @Test fun crossedOutRowsAreFullyGrayscale() {
+        assertTrue(TaskLogic.isDimmed(t(1, 8, crossed = true)))
         assertTrue(TaskLogic.isDimmed(t(1, 0, crossed = true)))
-        // color is still the priority color (only alpha differs), never a fixed gray
-        assertTrue(TaskLogic.priorityColorArgb(8) != 0xFF888888.toInt())
+        assertFalse(TaskLogic.isDimmed(t(1, 8)))
+        for (c in TaskLogic.Gray.all) assertTrue("not gray: ${Integer.toHexString(c)}", TaskLogic.Gray.isGray(c))
+        assertFalse(TaskLogic.Gray.isGray(TaskLogic.priorityColorArgb(8)))
+    }
+
+    @Test fun badgeAndBarVisibilityFollowSwitchesAndPriority() {
+        val both = dev.tasker2.domain.AppSettings()
+        assertTrue(TaskLogic.showBadge(4, both)); assertTrue(TaskLogic.showBar(4, both))
+        val noNum = both.copy(showPriorityNumber = false)
+        assertFalse(TaskLogic.showBadge(4, noNum)); assertTrue(TaskLogic.showBar(4, noNum))
+        val noBar = both.copy(showPriorityBar = false)
+        assertTrue(TaskLogic.showBadge(4, noBar)); assertFalse(TaskLogic.showBar(4, noBar))
+        val none = noNum.copy(showPriorityBar = false)
+        assertFalse(TaskLogic.showBadge(4, none)); assertFalse(TaskLogic.showBar(4, none))
+        // No priority: neither shows even with both switches on.
+        assertFalse(TaskLogic.showBadge(0, both)); assertFalse(TaskLogic.showBar(0, both))
     }
 }

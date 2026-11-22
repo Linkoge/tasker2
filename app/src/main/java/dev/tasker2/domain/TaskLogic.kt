@@ -11,10 +11,23 @@ object TaskLogic {
 
     fun hasPriority(p: Int): Boolean = p >= Task.MIN_PRIORITY
 
-    /** Opacity of the priority badge/bar: reduced (not gray) for crossed-out or completed tasks. */
-    const val DIMMED_PRIORITY_ALPHA = 0.55f
+    /** Crossed-out (or completed) rows are drawn entirely in neutral grays: no color at all. */
     fun isDimmed(task: Task): Boolean = task.completed || task.crossedOut
-    fun priorityAlpha(task: Task): Float = if (isDimmed(task)) DIMMED_PRIORITY_ALPHA else 1f
+
+    /** Pure neutral grays (R == G == B) used for every element of a crossed-out row. */
+    object Gray {
+        const val TEXT = 0xFF8C8C8C.toInt()      // title, strike line, number, circle, checkbox border
+        const val BADGE_FILL = 0xFF2E2E2E.toInt()
+        const val BAR_TRACK = 0xFF3A3A3A.toInt()
+        const val CHECK_FILL = 0xFF6E6E6E.toInt() // checked square fill
+        const val CHECKMARK = 0xFF1E1E1E.toInt()
+        val all = listOf(TEXT, BADGE_FILL, BAR_TRACK, CHECK_FILL, CHECKMARK)
+        fun isGray(argb: Int): Boolean = ((argb shr 16) and 0xFF) == ((argb shr 8) and 0xFF) && ((argb shr 8) and 0xFF) == (argb and 0xFF)
+    }
+
+    /** Whether the number badge / the bar are drawn for a task, given the display switches. */
+    fun showBadge(priority: Int, settings: AppSettings): Boolean = hasPriority(priority) && settings.showPriorityNumber
+    fun showBar(priority: Int, settings: AppSettings): Boolean = hasPriority(priority) && settings.showPriorityBar
 
     /** Open tasks: prioritized first (highest first; none = 0 sorts last), ties by creation time (oldest first), then id. */
     val openTaskOrder: Comparator<Task> =

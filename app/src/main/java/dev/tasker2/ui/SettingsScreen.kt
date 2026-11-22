@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -82,6 +83,18 @@ fun SettingsScreen(
                     Text("Monthly", fontSize = settings.tabFontSp.sp)
                 }
             }
+            SettingSlider(
+                label = "Gap between tasks", valueText = "${settings.taskGapDp} dp",
+                value = settings.taskGapDp, range = AppSettings.TASK_GAP_RANGE,
+                onChange = { v -> onChange { it.copy(taskGapDp = v) } },
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(settings.taskGapDp.dp)) {
+                    Text("First task", fontSize = settings.listFontSp.sp)
+                    Text("Second task", fontSize = settings.listFontSp.sp)
+                }
+            }
+            SettingSwitch("Show priority number", settings.showPriorityNumber) { v -> onChange { it.copy(showPriorityNumber = v) } }
+            SettingSwitch("Show priority bar", settings.showPriorityBar) { v -> onChange { it.copy(showPriorityBar = v) } }
             OutlinedButton(onClick = onReset, modifier = Modifier.fillMaxWidth()) { Text("Reset to defaults") }
         }
     }
@@ -119,5 +132,13 @@ private fun SettingSlider(
             steps = range.last - range.first - 1,
         )
         preview()
+    }
+}
+
+@Composable
+private fun SettingSwitch(label: String, checked: Boolean, onChecked: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+        Switch(checked = checked, onCheckedChange = onChecked)
     }
 }
