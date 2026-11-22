@@ -76,16 +76,23 @@ Deploying means publishing a verified release APK to `../tasker2.apk` (next to t
   `.absent` marker instead. It keeps the newest 5 entries.
 - `scripts/deploy.sh` runs `scripts/build_apk.sh` in fast mode (`SKIP_TESTS=1`: `assembleRelease` only, reusable Gradle daemon, `--offline` with
   online fallback; unit tests already ran before merge), checks the new APK, and then
-  replaces the published one atomically. A failed build or check leaves the published APK as it was.
+  replaces the published one atomically. It also keeps a versioned copy `../tasker2-apks/tasker2-v<versionName>.apk`
+  (versionName read from `app/build.gradle.kts`; old versioned copies are never deleted; override the folder with `TASKER2_VERSIONED_DIR`). A failed build or check leaves the published APK as it was.
 - `scripts/health.sh` passes when the published APK is a valid zip whose manifest names `dev.tasker2` and that
   has dex code (`scripts/deploy/apk_check.py`).
-- `scripts/rollback.sh` restores the newest backup. If that backup is an `.absent` marker, it removes the
+- `scripts/rollback.sh` restores the newest backup (only `tasker2.apk`; versioned copies are left alone). If that backup is an `.absent` marker, it removes the
   published APK.
 
 You can override these environment variables: `TASKER2_APK_TARGET` (publish path), `TASKER2_BACKUP_DIR`
 (defaults to the runner's `DEPLOY_BACKUP_DIR`, then `~/.local/share/tasker2/backups`), `TASKER2_KEEP_BACKUPS`,
 `TASKER2_BUILD_CMD` and `TASKER2_BUILT_APK`. Running `scripts/build_apk.sh` by hand without flags still runs the
 unit tests (`--skip-tests` or `SKIP_TESTS=1` gives the fast build). The scripts never restart services and never install to devices.
+
+## Versioning
+
+The current version is shown in the app's ⋮ menu (disabled "Version x.y" item). For each release: edit
+`versionName` and raise `versionCode` (by at least 1) in `app/build.gradle.kts`, then add a line to `CHANGELOG.md`.
+The deploy reads `versionName` from that file to name the versioned APK.
 
 ## Tests
 

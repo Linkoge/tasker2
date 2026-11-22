@@ -190,3 +190,19 @@ def test_gradle_properties_enable_caching():
     props = (ROOT / "gradle.properties").read_text()
     for line in ["org.gradle.caching=true", "org.gradle.parallel=true"]:
         assert line in props
+
+
+def test_deploy_keeps_versioned_copy_and_rollback_leaves_it(env):
+    import re
+    version = re.search(r'versionName\s*=\s*"([^"]+)"', (ROOT / "app/build.gradle.kts").read_text()).group(1)
+    versioned = env.target.parent / "tasker2-apks" / f"tasker2-v{version}.apk"
+    old_copy = env.target.parent / "tasker2-apks" / "tasker2-v0.0.apk"
+    old_copy.parent.mkdir(parents=True)
+    old_copy.write_text("old release")
+    assert env.run("backup.sh").returncode == 0
+    new = make_apk(env.tmp / "new.apk", marker="new")
+    assert env.run("deploy.sh", FAKE_BUILD_SOURCE=str(new)).returncode == 0
+    assert marker(env.target) == "new" and marker(versioned) == "new"
+    assert old_copy.read_text() == "old release"
+    assert env.run("rollback.sh").returncode == 0
+    assert not env.target.exists() and marker(versioned) == "new"

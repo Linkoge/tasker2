@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -115,6 +116,11 @@ fun MainScreen(
                             text = { Text("Manage categories") },
                             onClick = { menuOpen = false; onManageCategories() },
                         )
+                        val context = LocalContext.current
+                        val versionName = remember {
+                            runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "?"
+                        }
+                        DropdownMenuItem(text = { Text("Version $versionName") }, onClick = {}, enabled = false)
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.background),
