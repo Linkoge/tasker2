@@ -41,6 +41,20 @@ fun TaskerApp(vm: TaskViewModel = viewModel()) {
             onMove = vm::moveCategory,
         )
 
+        route.startsWith("bulk:") -> {
+            val catId = route.removePrefix("bulk:").toLong()
+            BulkAddScreen(
+                initialCategoryId = catId,
+                categories = cats,
+                onBack = { route = "main" },
+                onSave = { categoryId, entries ->
+                    vm.addTasks(categoryId, entries)
+                    selectedCategoryId = categoryId
+                    route = "main"
+                },
+            )
+        }
+
         route.startsWith("new:") -> {
             val catId = route.removePrefix("new:").toLong()
             TaskEditorScreen(
@@ -90,6 +104,7 @@ fun TaskerApp(vm: TaskViewModel = viewModel()) {
             selectedCategoryId = selectedCategoryId,
             onSelectCategory = { selectedCategoryId = it },
             onAddTask = { if (selectedCategoryId >= 0) route = "new:$selectedCategoryId" },
+            onAddMany = { if (selectedCategoryId >= 0) route = "bulk:$selectedCategoryId" },
             onEditTask = { route = "edit:${it.id}" },
             onToggleComplete = { t -> vm.setCompleted(t, !t.completed) },
             onToggleCrossedOut = vm::toggleCrossedOut,

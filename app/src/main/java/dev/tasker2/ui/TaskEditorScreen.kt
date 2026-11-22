@@ -104,25 +104,7 @@ fun TaskEditorScreen(
                 label = { Text("Notes") }, minLines = 3, modifier = Modifier.fillMaxWidth(),
             )
 
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Priority", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                    Text(priorityLabel(p), color = priorityColor(p))
-                    Spacer(Modifier.width(12.dp))
-                    PriorityIndicator(p)
-                }
-                Slider(
-                    value = priority,
-                    onValueChange = { priority = it },
-                    valueRange = Task.MIN_PRIORITY.toFloat()..Task.MAX_PRIORITY.toFloat(),
-                    steps = Task.MAX_PRIORITY - Task.MIN_PRIORITY - 1,
-                    colors = SliderDefaults.colors(thumbColor = priorityColor(p), activeTrackColor = priorityColor(p)),
-                )
-                Row {
-                    Text("1 · low", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
-                    Text("10 · most urgent", style = MaterialTheme.typography.labelSmall)
-                }
-            }
+            PriorityEditor(priority) { priority = it }
 
             CategoryDropdown(categories, categoryId) { categoryId = it }
 
@@ -154,6 +136,30 @@ fun TaskEditorScreen(
     }
 }
 
+@Composable
+internal fun PriorityEditor(priority: Float, onChange: (Float) -> Unit) {
+    val p = priority.roundToInt()
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Priority", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            Text(priorityLabel(p), color = priorityColor(p))
+            Spacer(Modifier.width(12.dp))
+            PriorityIndicator(p)
+        }
+        Slider(
+            value = priority,
+            onValueChange = onChange,
+            valueRange = Task.MIN_PRIORITY.toFloat()..Task.MAX_PRIORITY.toFloat(),
+            steps = Task.MAX_PRIORITY - Task.MIN_PRIORITY - 1,
+            colors = SliderDefaults.colors(thumbColor = priorityColor(p), activeTrackColor = priorityColor(p)),
+        )
+        Row {
+            Text("1 · low", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+            Text("10 · most urgent", style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
 private fun priorityLabel(p: Int) = when {
     p >= 9 -> "Critical"
     p >= 7 -> "High"
@@ -163,7 +169,7 @@ private fun priorityLabel(p: Int) = when {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CategoryDropdown(categories: List<Category>, selectedId: Long, onSelect: (Long) -> Unit) {
+internal fun CategoryDropdown(categories: List<Category>, selectedId: Long, onSelect: (Long) -> Unit) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val selected = categories.firstOrNull { it.id == selectedId }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {

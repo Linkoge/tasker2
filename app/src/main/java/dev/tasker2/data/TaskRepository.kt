@@ -1,5 +1,6 @@
 package dev.tasker2.data
 
+import dev.tasker2.domain.BulkEntry
 import dev.tasker2.domain.TaskLogic
 import kotlinx.coroutines.flow.Flow
 
@@ -45,6 +46,25 @@ class TaskRepository(private val dao: TaskDao) {
                 priority = TaskLogic.clampPriority(priority),
             ),
         )
+
+    /**
+     * Creates one task per non-blank title, in list order. createdAt strictly increases with the index
+     * so equal-priority tasks are listed in the order they were entered.
+     */
+    suspend fun addTasks(categoryId: Long, entries: List<BulkEntry>) {
+        val base = System.currentTimeMillis()
+        TaskLogic.bulkTasksToCreate(entries).forEachIndexed { i, e ->
+            dao.insertTask(
+                Task(
+                    categoryId = categoryId,
+                    title = e.title.trim(),
+                    notes = e.notes.trim(),
+                    priority = TaskLogic.clampPriority(e.priority),
+                    createdAt = base + i,
+                ),
+            )
+        }
+    }
 
     suspend fun getTask(id: Long): Task? = dao.getTask(id)
 

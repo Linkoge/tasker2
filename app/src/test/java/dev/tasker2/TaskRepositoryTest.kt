@@ -116,4 +116,35 @@ class TaskRepositoryTest {
         // Same priority: older task (created first) stays on top.
         assertEquals(listOf("now urgent", "high"), order)
     }
+
+    @Test
+    fun bulkAddCreatesInOrderInOneCategorySkippingBlanks() = runBlocking {
+        val dao = FakeDao()
+        val repo = TaskRepository(dao)
+        val c1 = repo.addCategory("A")
+        val c2 = repo.addCategory("B")
+        repo.addTasks(
+            c2,
+            listOf(
+                dev.tasker2.domain.BulkEntry("one", "n", 7),
+                dev.tasker2.domain.BulkEntry("  "),
+                dev.tasker2.domain.BulkEntry("two", "", 7),
+                dev.tasker2.domain.BulkEntry("three", "", 9),
+                dev.tasker2.domain.BulkEntry("four", "", 7),
+            ),
+        )
+        val all = dao.tasks.value
+        assertEquals(4, all.size)
+        assertTrue(all.all { it.categoryId == c2 } && c1 != c2)
+        assertEquals(listOf("one", "two", "three", "four"), all.sortedBy { it.id }.map { it.title })
+        assertEquals(7, all.first { it.title == "one" }.priority)
+        assertEquals("n", all.first { it.title == "one" }.notes)
+        assertEquals(listOf("three", "one", "two", "four"), TaskLogic.sortOpen(all).map { it.title })
+    }
+
+    @Test
+    fun equalPriorityTiesFollowCreationOrderEvenWithSameTimestamp() {
+        val t = { id: Long, title: String -> Task(id = id, categoryId = 1, title = title, priority = 5, createdAt = 100) }
+        assertEquals(listOf("a", "b", "c"), TaskLogic.sortOpen(listOf(t(3, "c"), t(1, "a"), t(2, "b"))).map { it.title })
+    }
 }

@@ -90,6 +90,7 @@ fun MainScreen(
     selectedCategoryId: Long,
     onSelectCategory: (Long) -> Unit,
     onAddTask: () -> Unit,
+    onAddMany: () -> Unit,
     onEditTask: (Task) -> Unit,
     onToggleComplete: (Task) -> Unit,
     onToggleCrossedOut: (Task) -> Unit,
@@ -121,12 +122,20 @@ fun MainScreen(
         },
         floatingActionButton = {
             if (current != null) {
-                FloatingActionButton(
-                    onClick = onAddTask,
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    shape = RoundedCornerShape(18.dp),
-                ) { Icon(Icons.Filled.Add, "Add task") }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    FloatingActionButton(
+                        onClick = onAddMany,
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        shape = RoundedCornerShape(18.dp),
+                    ) { Text("+++", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
+                    FloatingActionButton(
+                        onClick = onAddTask,
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        shape = RoundedCornerShape(18.dp),
+                    ) { Icon(Icons.Filled.Add, "Add task") }
+                }
             }
         },
     ) { padding ->

@@ -7,6 +7,7 @@ import dev.tasker2.data.AppDatabase
 import dev.tasker2.data.Category
 import dev.tasker2.data.Task
 import dev.tasker2.data.TaskRepository
+import dev.tasker2.domain.BulkEntry
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -32,6 +33,7 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
 
     fun addTask(categoryId: Long, title: String, notes: String, priority: Int) =
         launch { if (title.isNotBlank()) repo.addTask(categoryId, title, notes, priority) }
+    fun addTasks(categoryId: Long, entries: List<BulkEntry>) = launch { repo.addTasks(categoryId, entries) }
     fun updateTask(task: Task) = launch { repo.updateTask(task) }
     fun setCompleted(task: Task, completed: Boolean) = launch { repo.setCompleted(task, completed) }
     fun toggleCrossedOut(task: Task) = launch { repo.toggleCrossedOut(task) }

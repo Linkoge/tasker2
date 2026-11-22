@@ -21,6 +21,9 @@ object TaskLogic {
             compareByDescending<Task> { it.completedAt ?: 0L }.thenByDescending { it.id },
         )
 
+    /** Bulk-add entries that become tasks: non-blank titles, in order. */
+    fun bulkTasksToCreate(entries: List<BulkEntry>): List<BulkEntry> = entries.filter { it.title.isNotBlank() }
+
     /** Number of open tasks per category id. */
     fun openCounts(tasks: List<Task>): Map<Long, Int> =
         tasks.filter { !it.completed }.groupingBy { it.categoryId }.eachCount()
