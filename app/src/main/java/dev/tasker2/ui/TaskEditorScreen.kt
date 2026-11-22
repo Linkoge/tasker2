@@ -45,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.tasker2.data.Category
 import dev.tasker2.data.Task
+import dev.tasker2.ui.theme.Muted
 import kotlin.math.roundToInt
 
 data class TaskDraft(
@@ -68,7 +69,7 @@ fun TaskEditorScreen(
     val key = task?.id ?: -1L
     var title by rememberSaveable(key) { mutableStateOf(task?.title ?: "") }
     var notes by rememberSaveable(key) { mutableStateOf(task?.notes ?: "") }
-    var priority by rememberSaveable(key) { mutableFloatStateOf((task?.priority ?: Task.DEFAULT_PRIORITY).toFloat()) }
+    var priority by rememberSaveable(key) { mutableFloatStateOf((task?.priority ?: Task.NO_PRIORITY).toFloat()) }
     var categoryId by rememberSaveable(key) { mutableLongStateOf(initialCategoryId) }
     var completed by rememberSaveable(key) { mutableStateOf(task?.completed ?: false) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
@@ -142,25 +143,28 @@ internal fun PriorityEditor(priority: Float, onChange: (Float) -> Unit) {
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Priority", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-            Text(priorityLabel(p), color = priorityColor(p))
-            Spacer(Modifier.width(12.dp))
-            PriorityIndicator(p)
+            Text(priorityLabel(p), color = if (p == Task.NO_PRIORITY) Muted else priorityColor(p))
+            if (p != Task.NO_PRIORITY) {
+                Spacer(Modifier.width(12.dp))
+                PriorityIndicator(p)
+            }
         }
         Slider(
             value = priority,
             onValueChange = onChange,
-            valueRange = Task.MIN_PRIORITY.toFloat()..Task.MAX_PRIORITY.toFloat(),
-            steps = Task.MAX_PRIORITY - Task.MIN_PRIORITY - 1,
-            colors = SliderDefaults.colors(thumbColor = priorityColor(p), activeTrackColor = priorityColor(p)),
+            valueRange = Task.NO_PRIORITY.toFloat()..Task.MAX_PRIORITY.toFloat(),
+            steps = Task.MAX_PRIORITY - Task.NO_PRIORITY - 1,
+            colors = if (p == Task.NO_PRIORITY) SliderDefaults.colors() else SliderDefaults.colors(thumbColor = priorityColor(p), activeTrackColor = priorityColor(p)),
         )
         Row {
-            Text("1 · low", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+            Text("None · 1 = low", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
             Text("10 · most urgent", style = MaterialTheme.typography.labelSmall)
         }
     }
 }
 
 private fun priorityLabel(p: Int) = when {
+    p == Task.NO_PRIORITY -> "None"
     p >= 9 -> "Critical"
     p >= 7 -> "High"
     p >= 4 -> "Medium"

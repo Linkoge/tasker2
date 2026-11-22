@@ -16,6 +16,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 fun TaskerApp(vm: TaskViewModel = viewModel()) {
     val categories by vm.categories.collectAsState()
     val tasks by vm.tasks.collectAsState()
+    val settings by vm.settings.collectAsState()
     var route by rememberSaveable { mutableStateOf("main") }
     var selectedCategoryId by rememberSaveable { mutableLongStateOf(-1L) }
 
@@ -39,6 +40,13 @@ fun TaskerApp(vm: TaskViewModel = viewModel()) {
             onRename = vm::renameCategory,
             onDelete = vm::deleteCategory,
             onMove = vm::moveCategory,
+        )
+
+        route == "settings" -> SettingsScreen(
+            settings = settings,
+            onChange = vm::updateSettings,
+            onReset = vm::resetSettings,
+            onBack = { route = "main" },
         )
 
         route.startsWith("bulk:") -> {
@@ -111,6 +119,8 @@ fun TaskerApp(vm: TaskViewModel = viewModel()) {
             onMoveTask = vm::moveTask,
             onDeleteTask = vm::deleteTask,
             onManageCategories = { route = "manage" },
+            onOpenSettings = { route = "settings" },
+            settings = settings,
         )
     }
 }

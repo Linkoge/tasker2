@@ -5,6 +5,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.tasker2.data.AppDatabase
 import dev.tasker2.data.Category
+import dev.tasker2.data.SettingsRepository
+import dev.tasker2.data.SharedPrefsIntStore
+import dev.tasker2.domain.AppSettings
 import dev.tasker2.data.Task
 import dev.tasker2.data.TaskRepository
 import dev.tasker2.domain.BulkEntry
@@ -16,6 +19,11 @@ import kotlinx.coroutines.launch
 
 class TaskViewModel(app: Application) : AndroidViewModel(app) {
     private val repo = TaskRepository(AppDatabase.get(app).taskDao())
+
+    private val settingsRepo = SettingsRepository(SharedPrefsIntStore(app))
+    val settings: StateFlow<AppSettings> = settingsRepo.settings
+    fun updateSettings(change: (AppSettings) -> AppSettings) = settingsRepo.update(change)
+    fun resetSettings() = settingsRepo.reset()
 
     /** null until the first emission from the database. */
     val categories: StateFlow<List<Category>?> = repo.categories

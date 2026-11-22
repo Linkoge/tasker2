@@ -23,6 +23,10 @@ data class BulkState(
     /** Focus/select title [i]; ignored for disabled fields. Notes and priority live per entry, so switching keeps them. */
     fun select(i: Int): BulkState = if (isEnabled(i)) copy(selected = i) else this
 
+    /** Title field that Enter/Next should focus after [i]: only the next one, and only when [i] has text and it is enabled. */
+    fun nextFocusIndex(i: Int): Int? =
+        if (i in entries.indices && entries[i].title.isNotBlank() && isEnabled(i + 1)) i + 1 else null
+
     fun setTitle(i: Int, title: String): BulkState =
         if (!isEnabled(i)) this else update(i) { it.copy(title = title) }
 
@@ -43,5 +47,14 @@ data class BulkState(
 
     companion object {
         const val MIN_FIELDS = 2
+
+        /** Extra space (dp) kept visible above and below the focused title so the numbered neighbours show too. */
+        const val NEIGHBOUR_MARGIN_DP = 64
+
+        /**
+         * Region (relative to a title row of [heightPx]) to bring into view when it is focused:
+         * the row plus [marginPx] above and below. Callers' scroll containers clamp it to their own bounds.
+         */
+        fun focusRegion(heightPx: Float, marginPx: Float): Pair<Float, Float> = (-marginPx) to (heightPx + marginPx)
     }
 }

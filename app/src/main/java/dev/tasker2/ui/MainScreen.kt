@@ -33,6 +33,10 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.DropdownMenuItem
@@ -70,18 +74,36 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.tasker2.data.Category
 import dev.tasker2.data.Task
+import dev.tasker2.domain.AppSettings
 import dev.tasker2.domain.TaskLogic
 import dev.tasker2.ui.theme.BadgeBg
 import dev.tasker2.ui.theme.CardColor
 import dev.tasker2.ui.theme.Muted
 
 fun priorityColor(priority: Int): Color = Color(TaskLogic.priorityColorArgb(priority))
+
+/** Text with a custom ~2dp strikethrough line (the default TextDecoration is too thin). */
+@Composable
+private fun StrikeText(text: String, fontSize: androidx.compose.ui.unit.TextUnit, color: Color, struck: Boolean) {
+    var layout by remember { mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null) }
+    val strokePx = with(LocalDensity.current) { 2.dp.toPx() }
+    Text(
+        text, fontSize = fontSize, color = color,
+        onTextLayout = { layout = it },
+        modifier = if (!struck) Modifier else Modifier.drawBehind {
+            val l = layout ?: return@drawBehind
+            for (i in 0 until l.lineCount) {
+                val y = (l.getLineTop(i) + l.getLineBottom(i)) / 2f
+                drawLine(color, Offset(l.getLineLeft(i), y), Offset(l.getLineRight(i), y), strokeWidth = strokePx)
+            }
+        },
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -98,6 +120,8 @@ fun MainScreen(
     onMoveTask: (Task, Long) -> Unit,
     onDeleteTask: (Task) -> Unit,
     onManageCategories: () -> Unit,
+    onOpenSettings: () -> Unit = {},
+    settings: AppSettings = AppSettings(),
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val counts = remember(tasks) { TaskLogic.openCounts(tasks) }
@@ -115,6 +139,10 @@ fun MainScreen(
                         DropdownMenuItem(
                             text = { Text("Manage categories") },
                             onClick = { menuOpen = false; onManageCategories() },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Settings") },
+                            onClick = { menuOpen = false; onOpenSettings() },
                         )
                         val context = LocalContext.current
                         val versionName = remember {
@@ -157,7 +185,7 @@ fun MainScreen(
                 }
                 return@Column
             }
-            CategoryTabs(categories, counts, selectedIndex, onSelectCategory)
+            CategoryTabs(categories, counts, selectedIndex, settings, onSelectCategory)
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
 
             val open = TaskLogic.sortOpen(tasks.filter { it.categoryId == current.id })
@@ -180,7 +208,7 @@ fun MainScreen(
                 }
                 items(open, key = { "open-${it.id}" }) { task ->
                     CardSection(top = false, bottom = task == open.last()) {
-                        TaskRow(task, categories, onEditTask, onToggleComplete, onToggleCrossedOut, onMoveTask, onDeleteTask)
+                        TaskRow(task, categories, settings, onEditTask, onToggleComplete, onToggleCrossedOut, onMoveTask, onDeleteTask)
                     }
                 }
                 if (done.isNotEmpty()) {
@@ -205,7 +233,7 @@ fun MainScreen(
                     if (completedExpanded) {
                         items(done, key = { "done-${it.id}" }) { task ->
                             CardSection(top = task == done.first(), bottom = task == done.last()) {
-                                TaskRow(task, categories, onEditTask, onToggleComplete, onToggleCrossedOut, onMoveTask, onDeleteTask)
+                                TaskRow(task, categories, settings, onEditTask, onToggleComplete, onToggleCrossedOut, onMoveTask, onDeleteTask)
                             }
                         }
                     }
@@ -216,13 +244,19 @@ fun MainScreen(
 }
 
 @Composable
-private fun CategoryTabs(categories: List<Category>, counts: Map<Long, Int>, selectedIndex: Int, onSelect: (Long) -> Unit) {
+private fun CategoryTabs(
+    categories: List<Category>,
+    counts: Map<Long, Int>,
+    selectedIndex: Int,
+    settings: AppSettings,
+    onSelect: (Long) -> Unit,
+) {
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
-    val tabStyle = TextStyle(fontSize = TabLayout.FONT_SP.sp)
-    // Gap between adjacent tabs = width of three spaces in the tab font.
-    val gap = remember(measurer) {
-        with(density) { measurer.measure(TabLayout.gapText(), tabStyle).size.width.toDp() }
+    val tabStyle = TextStyle(fontSize = settings.tabFontSp.sp)
+    // Gap between adjacent tabs = width of N spaces (settings, default 6) in the tab font.
+    val gap = remember(measurer, settings.tabFontSp, settings.tabGapSpaces) {
+        with(density) { measurer.measure(TabLayout.gapText(settings.tabGapSpaces), tabStyle).size.width.toDp() }
     }
     val nameWidths = remember { mutableStateMapOf<Int, Dp>() }
     // Plain scrolling row (no material Tab / TabRow: those add ripple, padding and a 90dp min width).
@@ -261,9 +295,9 @@ private fun CategoryTabs(categories: List<Category>, counts: Map<Long, Int>, sel
 
 /** Tab layout constants shared by the UI and tests. */
 object TabLayout {
-    const val FONT_SP = 15
-    const val GAP_SPACES = 3
-    fun gapText(): String = " ".repeat(GAP_SPACES)
+    const val FONT_SP = AppSettings.DEFAULT_TAB_FONT_SP
+    const val GAP_SPACES = AppSettings.DEFAULT_TAB_GAP_SPACES
+    fun gapText(spaces: Int = GAP_SPACES): String = " ".repeat(spaces)
 }
 
 /** Draws a slice of a rounded card so several LazyColumn items look like one card. */
@@ -285,27 +319,26 @@ private fun CardSection(top: Boolean, bottom: Boolean, content: @Composable () -
 private fun TaskRow(
     task: Task,
     categories: List<Category>,
+    settings: AppSettings,
     onEdit: (Task) -> Unit,
     onToggleComplete: (Task) -> Unit,
     onToggleCrossedOut: (Task) -> Unit,
     onMove: (Task, Long) -> Unit,
     onDelete: (Task) -> Unit,
 ) {
-    val grayed = task.completed || task.crossedOut
+    val grayed = TaskLogic.isDimmed(task)
     var menuOpen by remember { mutableStateOf(false) }
     var moveMenuOpen by remember { mutableStateOf(false) }
     Box {
         Row(
             Modifier.fillMaxWidth()
                 .combinedClickable(onClick = { onEdit(task) }, onLongClick = { menuOpen = true })
-                .padding(start = 8.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
+                .padding(start = 8.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // Round circle: one tap completes (or reopens) the task, crossed out or not.
             Box(
-                Modifier.size(48.dp).clip(CircleShape).combinedClickable(
-                    onClick = { onToggleComplete(task) },
-                    onLongClick = { onToggleCrossedOut(task) },
-                ),
+                Modifier.size(48.dp).clip(CircleShape).clickable { onToggleComplete(task) },
                 contentAlignment = Alignment.Center,
             ) {
                 if (task.completed) {
@@ -315,17 +348,29 @@ private fun TaskRow(
                 }
             }
             Column(Modifier.weight(1f).padding(start = 4.dp, end = 8.dp, top = 6.dp, bottom = 6.dp)) {
-                Text(
+                StrikeText(
                     task.title,
-                    fontSize = 17.sp,
+                    fontSize = settings.listFontSp.sp,
                     color = if (grayed) Muted else MaterialTheme.colorScheme.onSurface,
-                    textDecoration = if (grayed) TextDecoration.LineThrough else null,
+                    struck = grayed,
                 )
                 if (task.notes.isNotBlank()) {
-                    Text(task.notes, fontSize = 13.sp, color = Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(task.notes, fontSize = settings.notesFontSp.sp, color = Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
-            PriorityIndicator(task.priority, dimmed = grayed)
+            if (TaskLogic.hasPriority(task.priority)) {
+                PriorityIndicator(task.priority, alpha = TaskLogic.priorityAlpha(task))
+            }
+            // Square checkbox at the far right: toggles crossed-out (task stays in the open list).
+            Checkbox(
+                checked = task.crossedOut,
+                onCheckedChange = { onToggleCrossedOut(task) },
+                colors = CheckboxDefaults.colors(
+                    checkedColor = MaterialTheme.colorScheme.primary,
+                    uncheckedColor = Muted,
+                    checkmarkColor = MaterialTheme.colorScheme.onPrimary,
+                ),
+            )
         }
         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
             DropdownMenuItem(text = { Text("Edit") }, onClick = { menuOpen = false; onEdit(task) })
@@ -346,10 +391,10 @@ private fun TaskRow(
     }
 }
 
-/** Priority number badge plus a vertical urgency bar filled proportionally, colored gray-yellow → red. */
+/** Priority number badge plus (colored, only dimmed to [alpha], never gray)  a vertical urgency bar filled proportionally, colored gray-yellow → red. */
 @Composable
-fun PriorityIndicator(priority: Int, dimmed: Boolean = false, modifier: Modifier = Modifier) {
-    val color = priorityColor(priority).let { if (dimmed) it.copy(alpha = 0.45f) else it }
+fun PriorityIndicator(priority: Int, alpha: Float = 1f, modifier: Modifier = Modifier) {
+    val color = priorityColor(priority).let { if (alpha < 1f) it.copy(alpha = alpha) else it }
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)).background(color.copy(alpha = 0.18f))

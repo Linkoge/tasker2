@@ -107,14 +107,34 @@ class TaskRepositoryTest {
     @Test
     fun addTaskClampsPriorityAndEditKeepsSortOrder() = runBlocking {
         val c = repo.addCategory("Daily")
-        val low = repo.addTask(c, "low", "", 0)
+        val low = repo.addTask(c, "low", "", 1)
         val high = repo.addTask(c, "high", "", 99)
+        assertEquals(0, repo.getTask(repo.addTask(c, "neg", "", -4))!!.priority)
         assertEquals(1, repo.getTask(low)!!.priority)
         assertEquals(10, repo.getTask(high)!!.priority)
         repo.updateTask(repo.getTask(low)!!.copy(priority = 10, title = " now urgent "))
         val order = TaskLogic.sortOpen(dao.tasks.value).map { it.title }
         // Same priority: older task (created first) stays on top.
-        assertEquals(listOf("now urgent", "high"), order)
+        assertEquals(listOf("now urgent", "high", "neg"), order)
+    }
+
+    @Test
+    fun tasksWithoutPrioritySortLastAndCrossedOutThenCompleteWorks() = runBlocking {
+        val c = repo.addCategory("Daily")
+        val plain = repo.addTask(c, "plain", "", Task.NO_PRIORITY)
+        val urgent = repo.addTask(c, "urgent", "", 2)
+        assertEquals(0, repo.getTask(plain)!!.priority)
+        assertEquals(listOf("urgent", "plain"), TaskLogic.sortOpen(dao.tasks.value).map { it.title })
+        repo.toggleCrossedOut(repo.getTask(plain)!!)
+        assertTrue(repo.getTask(plain)!!.crossedOut)
+        assertEquals(2, TaskLogic.sortOpen(dao.tasks.value).size)
+        repo.setCompleted(repo.getTask(plain)!!, true)
+        assertEquals(listOf("urgent"), TaskLogic.sortOpen(dao.tasks.value).map { it.title })
+        assertEquals(listOf("plain"), TaskLogic.sortCompleted(dao.tasks.value).map { it.title })
+        repo.setCompleted(repo.getTask(plain)!!, false)
+        repo.toggleCrossedOut(repo.getTask(plain)!!)
+        assertEquals(false, repo.getTask(plain)!!.crossedOut)
+        assertEquals(2, repo.getTask(urgent)!!.priority)
     }
 
     @Test

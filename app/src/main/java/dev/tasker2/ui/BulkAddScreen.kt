@@ -1,14 +1,21 @@
 package dev.tasker2.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -23,15 +30,25 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import dev.tasker2.data.Category
 import dev.tasker2.domain.BulkEntry
@@ -46,7 +63,13 @@ private val BulkStateSaver = listSaver<BulkState, Any>(
     },
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * The whole form is ONE scroll container (titles, then details, then buttons) with `imePadding`.
+ * Previously a weighted LazyColumn sat above a fixed bottom section; when the keyboard opened the
+ * bottom section took all the height and squeezed the title list to nothing. Now nothing can be
+ * squeezed: the form scrolls, and the focused title is brought into view with its neighbours.
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun BulkAddScreen(
     initialCategoryId: Long,
@@ -57,6 +80,16 @@ fun BulkAddScreen(
     var state by rememberSaveable(stateSaver = BulkStateSaver) { mutableStateOf(BulkState()) }
     var categoryId by rememberSaveable { mutableLongStateOf(initialCategoryId) }
     val toCreate = TaskLogic.bulkTasksToCreate(state.entries)
+    val requesters = remember { mutableMapOf<Int, FocusRequester>() }
+    var pendingFocus by remember { mutableIntStateOf(-1) }
+    val imeBottom = WindowInsets.ime.getBottom(LocalDensity.current)
+
+    // Enter/Next: focus the next title once its field is composed and enabled.
+    LaunchedEffect(pendingFocus, state.entries.size) {
+        if (pendingFocus >= 0) {
+            requesters[pendingFocus]?.let { runCatching { it.requestFocus() }; pendingFocus = -1 }
+        }
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -68,27 +101,47 @@ fun BulkAddScreen(
             )
         },
     ) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize().imePadding()) {
-            LazyColumn(
-                Modifier.weight(1f).fillMaxWidth(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                itemsIndexed(state.entries) { i, entry ->
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("${i + 1}.", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(end = 4.dp))
-                        OutlinedTextField(
-                            value = entry.title,
-                            onValueChange = { state = state.setTitle(i, it) },
-                            enabled = state.isEnabled(i),
-                            singleLine = true,
-                            label = { Text("Title") },
-                            modifier = Modifier.weight(1f).onFocusChanged { if (it.isFocused) state = state.select(i) },
-                        )
+        Column(
+            Modifier.padding(padding).fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            state.entries.forEachIndexed { i, entry ->
+                val focusRequester = remember { FocusRequester() }
+                val bringIntoView = remember { BringIntoViewRequester() }
+                var focused by remember { mutableStateOf(false) }
+                var rowSize by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
+                requesters[i] = focusRequester
+                val marginPx = with(LocalDensity.current) { BulkState.NEIGHBOUR_MARGIN_DP.dp.toPx() }
+                // Keep the focused row (plus neighbours) visible, also while the keyboard animates open.
+                LaunchedEffect(focused, imeBottom, rowSize) {
+                    if (focused && rowSize.height > 0) {
+                        val (top, bottom) = BulkState.focusRegion(rowSize.height.toFloat(), marginPx)
+                        bringIntoView.bringIntoView(Rect(0f, top, rowSize.width.toFloat(), bottom))
                     }
                 }
+                Row(
+                    Modifier.onSizeChanged { rowSize = it }.bringIntoViewRequester(bringIntoView),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text("${i + 1}.", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(end = 4.dp))
+                    OutlinedTextField(
+                        value = entry.title,
+                        onValueChange = { state = state.setTitle(i, it) },
+                        enabled = state.isEnabled(i),
+                        singleLine = true,
+                        label = { Text("Title") },
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                        keyboardActions = KeyboardActions(onNext = { state.nextFocusIndex(i)?.let { pendingFocus = it } }),
+                        modifier = Modifier.weight(1f).testTag("bulk-title-$i").focusRequester(focusRequester)
+                            .onFocusChanged {
+                                focused = it.isFocused
+                                if (it.isFocused) state = state.select(i)
+                            },
+                    )
+                }
             }
-            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.fillMaxWidth().padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Details for ${state.selected + 1}.", style = MaterialTheme.typography.labelMedium)
                 OutlinedTextField(
                     value = state.current.notes, onValueChange = { state = state.setNotes(it) },

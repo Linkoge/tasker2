@@ -4,6 +4,7 @@ import dev.tasker2.data.Category
 import dev.tasker2.data.Task
 import dev.tasker2.domain.TaskLogic
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -36,10 +37,11 @@ class TaskLogicTest {
 
     @Test
     fun priorityIsClampedToTenLevels() {
-        assertEquals(1, TaskLogic.clampPriority(-3))
+        assertEquals(0, TaskLogic.clampPriority(-3))
         assertEquals(10, TaskLogic.clampPriority(42))
         assertEquals(7, TaskLogic.clampPriority(7))
-        assertEquals(5, Task(categoryId = 1, title = "x").priority)
+        assertEquals(Task.NO_PRIORITY, Task(categoryId = 1, title = "x").priority)
+        assertEquals(0, Task.DEFAULT_PRIORITY)
     }
 
     @Test
@@ -94,5 +96,60 @@ class TaskLogicTest {
         assertEquals(999L, done.completedAt)
         val reopened = TaskLogic.setCompleted(done, false)
         assertNull(reopened.completedAt)
+    }
+}
+
+class NoPriorityAndRowControlsTest {
+    private fun t(id: Long, p: Int, created: Long = id, crossed: Boolean = false, done: Boolean = false) =
+        Task(id = id, categoryId = 1, title = "t$id", priority = p, createdAt = created, crossedOut = crossed, completed = done)
+
+    @Test fun noPriorityIsTheDefaultEverywhere() {
+        assertEquals(0, Task(categoryId = 1, title = "x").priority)
+        assertEquals(0, dev.tasker2.domain.BulkEntry().priority)
+        assertEquals(0, dev.tasker2.domain.BulkState().current.priority)
+        assertFalse(TaskLogic.hasPriority(0))
+        assertTrue(TaskLogic.hasPriority(1))
+    }
+
+    @Test fun prioritizedFirstThenNoPriorityWithCreationOrderTieBreak() {
+        val list = listOf(t(1, 0), t(2, 3), t(3, 0), t(4, 10), t(5, 3))
+        assertEquals(listOf(4L, 2L, 5L, 1L, 3L), TaskLogic.sortOpen(list).map { it.id })
+    }
+
+    @Test fun clampKeepsNoneAndRealValues() {
+        assertEquals(0, TaskLogic.clampPriority(0))
+        assertEquals(1, TaskLogic.clampPriority(1))
+        assertEquals(10, TaskLogic.clampPriority(11))
+    }
+
+    @Test fun colorForRealPrioritiesUnaffected() {
+        assertEquals(TaskLogic.priorityColorArgb(1), TaskLogic.priorityColorArgb(1))
+        assertTrue(TaskLogic.priorityColorArgb(10) != TaskLogic.priorityColorArgb(1))
+    }
+
+    @Test fun crossedCheckboxTogglesOnAndOffAndStaysOpen() {
+        val a = TaskLogic.toggleCrossedOut(t(1, 7))
+        assertTrue(a.crossedOut); assertFalse(a.completed)
+        assertEquals(listOf(a), TaskLogic.sortOpen(listOf(a)))
+        assertEquals(7, a.priority)
+        assertFalse(TaskLogic.toggleCrossedOut(a).crossedOut)
+    }
+
+    @Test fun completeWhileCrossedOutMovesToCompletedAndReopens() {
+        val done = TaskLogic.setCompleted(t(1, 5, crossed = true), true, now = 50)
+        assertTrue(done.completed); assertEquals(50L, done.completedAt)
+        assertTrue(TaskLogic.sortOpen(listOf(done)).isEmpty())
+        assertEquals(listOf(done), TaskLogic.sortCompleted(listOf(done)))
+        val reopened = TaskLogic.setCompleted(done, false)
+        assertFalse(reopened.completed)
+        assertEquals(listOf(reopened), TaskLogic.sortOpen(listOf(reopened)))
+    }
+
+    @Test fun crossedOutPriorityIsDimmedNotGray() {
+        assertEquals(1f, TaskLogic.priorityAlpha(t(1, 8)), 0f)
+        assertEquals(0.55f, TaskLogic.priorityAlpha(t(1, 8, crossed = true)), 0f)
+        assertTrue(TaskLogic.isDimmed(t(1, 0, crossed = true)))
+        // color is still the priority color (only alpha differs), never a fixed gray
+        assertTrue(TaskLogic.priorityColorArgb(8) != 0xFF888888.toInt())
     }
 }

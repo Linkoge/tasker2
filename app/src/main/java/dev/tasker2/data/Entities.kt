@@ -31,7 +31,7 @@ data class Task(
     val categoryId: Long,
     val title: String,
     val notes: String = "",
-    /** 1..10, 10 = most urgent. */
+    /** 0 = no priority (the default); otherwise 1..10, 10 = most urgent. Existing rows keep their values. */
     val priority: Int = DEFAULT_PRIORITY,
     val completed: Boolean = false,
     @ColumnInfo(name = "created_at") val createdAt: Long = System.currentTimeMillis(),
@@ -40,8 +40,10 @@ data class Task(
     @ColumnInfo(name = "crossed_out", defaultValue = "0") val crossedOut: Boolean = false,
 ) {
     companion object {
+        /** Stored as 0 so the column stays non-null and needs no migration (real priorities are 1..10). */
+        const val NO_PRIORITY = 0
         const val MIN_PRIORITY = 1
         const val MAX_PRIORITY = 10
-        const val DEFAULT_PRIORITY = 5
+        const val DEFAULT_PRIORITY = NO_PRIORITY
     }
 }

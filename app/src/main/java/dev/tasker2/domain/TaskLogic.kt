@@ -6,10 +6,17 @@ import dev.tasker2.data.Task
 /** Pure, Android-free logic so it can be unit tested on the JVM. */
 object TaskLogic {
 
-    /** Clamp any value into the valid 1..10 priority range. */
-    fun clampPriority(p: Int): Int = p.coerceIn(Task.MIN_PRIORITY, Task.MAX_PRIORITY)
+    /** Clamp any value into 0 (none) or 1..10. */
+    fun clampPriority(p: Int): Int = p.coerceIn(Task.NO_PRIORITY, Task.MAX_PRIORITY)
 
-    /** Open tasks: highest priority first, ties by creation time (oldest first), then id. */
+    fun hasPriority(p: Int): Boolean = p >= Task.MIN_PRIORITY
+
+    /** Opacity of the priority badge/bar: reduced (not gray) for crossed-out or completed tasks. */
+    const val DIMMED_PRIORITY_ALPHA = 0.55f
+    fun isDimmed(task: Task): Boolean = task.completed || task.crossedOut
+    fun priorityAlpha(task: Task): Float = if (isDimmed(task)) DIMMED_PRIORITY_ALPHA else 1f
+
+    /** Open tasks: prioritized first (highest first; none = 0 sorts last), ties by creation time (oldest first), then id. */
     val openTaskOrder: Comparator<Task> =
         compareByDescending<Task> { it.priority }.thenBy { it.createdAt }.thenBy { it.id }
 
@@ -63,7 +70,7 @@ object TaskLogic {
      * Urgency color as ARGB for priority 1..10: goes from gray-yellow (1) through orange to red (10).
      */
     fun priorityColorArgb(priority: Int): Int {
-        val t = (clampPriority(priority) - 1) / 9f
+        val t = (priority.coerceIn(Task.MIN_PRIORITY, Task.MAX_PRIORITY) - 1) / 9f
         val hue = 52f * (1f - t)
         val sat = 0.25f + 0.65f * t
         return hsvToArgb(hue, sat, 0.95f)

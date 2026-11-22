@@ -9,16 +9,16 @@ Dark theme with category tabs, similar in look to Google Tasks.
   are Daily, Weekly and Monthly. Names can be any Unicode text (for example Georgian).
   Use **⋮ → Manage categories** to add, rename, delete, and reorder them (↑/↓ arrows).
   The tab order is saved in the database. Deleting a category also deletes its tasks.
-- **Tasks**: add with the **+** button, or many at once with the **+++** button (numbered title fields; field N unlocks once N-1 has text and a new empty one appears automatically; notes and priority are kept per title, one category for the whole batch; tasks are created in order 1, 2, 3…, blanks skipped). Tap a task to edit its title, notes, priority, category or
-  completed state, or to delete it. Tap the circle to complete a task; long-press the circle to toggle a
-  **crossed-out** state (strikethrough, grayed, stays in the open list). Completed tasks go to a
+- **Tasks**: add with the **+** button, or many at once with the **+++** button (numbered title fields; field N unlocks once N-1 has text and a new empty one appears automatically; notes and priority are kept per title (default: no priority), one category for the whole batch; tasks are created in order 1, 2, 3…, blanks skipped). Tap a task to edit its title, notes, priority, category or
+  completed state, or to delete it. Tap the round circle on the left to complete a task (works even when it is crossed out); tap the square checkbox on the far right to toggle a
+  **crossed-out** state (thick strikethrough, dimmed title and dimmed-but-colored priority, stays in the open list). Completed tasks go to a
   collapsed-by-default section shown only as an arrow on the right; tap it to expand, tap the check mark to reopen one.
   An empty category shows nothing.
 - **Move a task** to another category: long-press it and pick **Move to…**, or change the
   Category dropdown in the editor.
-- **Priority** from 1 to 10 (10 = most urgent, default 5). Open tasks are sorted highest priority
-  first; tasks with the same priority are ordered by creation time (oldest first). Each row shows the
-  priority number and an urgency bar on the right. The color runs from gray-yellow (low) to red (high); the theme is dark orange.
+- **Priority**: None (default, stored as 0, so no database migration) or 1 to 10 (10 = most urgent). Open tasks are sorted highest priority
+  first, tasks with no priority last; ties are ordered by creation time (oldest first). A row with a priority shows the
+  priority number and an urgency bar on the right; a row with none shows neither. The color runs from gray-yellow (low) to red (high); the theme is dark orange.
 
 ## Project layout
 
@@ -119,6 +119,13 @@ python -m pytest -q -m smoke    # project-structure smoke checks
 python -m pytest -q             # also the deploy script tests (disposable dirs, fake build)
 ```
 
+- **Settings** (⋮ → Settings), saved in SharedPreferences and applied immediately: category tab font size (11–24sp, default 15),
+  task list font size (12–24sp, default 17; notes scale proportionally), and the gap between tabs in spaces (1–12, default 6,
+  measured at the current tab font size). Each control shows its value and a live preview; **Reset to defaults** restores them.
+  Logic is in `domain/AppSettings.kt` and `data/SettingsRepository.kt`.
+- **+++ screen layout**: the whole form is one scroll container with `imePadding`, and the focused title is brought into view with
+  its neighbours, so the keyboard can no longer squeeze the title list away. Enter/Next moves to the next title.
+
 UI notes: category tabs have no ripple/pressed background (selection = text color + underline) and are
-spaced by the width of three spaces in the 15sp tab font. The Completed section is just an expand arrow
+spaced by the width of six spaces (default) in the 15sp tab font. The Completed section is just an expand arrow
 (collapsed by default) with no background.

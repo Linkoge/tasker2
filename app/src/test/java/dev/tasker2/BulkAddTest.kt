@@ -53,7 +53,7 @@ class BulkAddTest {
     @Test fun notesAndPriorityRetainedPerTitle() {
         var s = BulkState().setTitle(0, "a").setNotes("n1").setPriority(9)
         s = s.setTitle(1, "b").select(1)
-        assertEquals("", s.current.notes); assertEquals(Task.DEFAULT_PRIORITY, s.current.priority)
+        assertEquals("", s.current.notes); assertEquals(0, s.current.priority)
         s = s.setNotes("n2").setPriority(2).select(0)
         assertEquals("n1", s.current.notes); assertEquals(9, s.current.priority)
         s = s.select(1)
@@ -66,5 +66,23 @@ class BulkAddTest {
         assertEquals(listOf("a"), TaskLogic.bulkTasksToCreate(s.entries).map { it.title })
         val t = BulkState().setTitle(0, "a").setTitle(1, "b").setTitle(0, " ")
         assertEquals(listOf("b"), TaskLogic.bulkTasksToCreate(t.entries).map { it.title })
+    }
+}
+
+class BulkAddFocusTest {
+    @Test fun enterMovesToNextTitleOnlyWhenThisOneHasText() {
+        val empty = BulkState()
+        assertEquals(null, empty.nextFocusIndex(0))          // blank title: next field is disabled
+        val s = empty.setTitle(0, "a")
+        assertEquals(1, s.nextFocusIndex(0))                 // next field exists (auto-appended) and is enabled
+        assertEquals(null, s.nextFocusIndex(1))              // blank last field: nowhere to go
+        assertEquals(null, s.nextFocusIndex(5))              // out of range
+        assertEquals(2, s.setTitle(1, "b").nextFocusIndex(1))
+    }
+
+    @Test fun focusRegionIncludesNeighbours() {
+        val (top, bottom) = BulkState.focusRegion(56f, 64f)
+        assertEquals(-64f, top, 0f)
+        assertEquals(120f, bottom, 0f)
     }
 }
