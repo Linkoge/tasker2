@@ -2,6 +2,7 @@ package dev.tasker2.data
 
 import android.content.Context
 import dev.tasker2.domain.AppSettings
+import dev.tasker2.domain.TaskRowMetrics
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -30,7 +31,7 @@ class SettingsRepository(private val store: IntStore) {
         tabFontSp = store.getInt(KEY_TAB_FONT, AppSettings.DEFAULT_TAB_FONT_SP),
         listFontSp = store.getInt(KEY_LIST_FONT, AppSettings.DEFAULT_LIST_FONT_SP),
         tabGapSpaces = store.getInt(KEY_TAB_GAP, AppSettings.DEFAULT_TAB_GAP_SPACES),
-        taskGapDp = store.getInt(KEY_TASK_GAP, AppSettings.DEFAULT_TASK_GAP_DP),
+        taskGapDp = TaskRowMetrics.migrateLegacyGap(store.getInt(KEY_TASK_GAP, AppSettings.DEFAULT_TASK_GAP_DP)),
         showPriorityNumber = store.getInt(KEY_SHOW_NUMBER, 1) != 0,
         showPriorityBar = store.getInt(KEY_SHOW_BAR, 1) != 0,
     ).normalized()

@@ -27,6 +27,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.tasker2.domain.AppSettings
+import dev.tasker2.domain.TaskRowMetrics
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.heightIn
 import dev.tasker2.ui.theme.Muted
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -84,13 +87,17 @@ fun SettingsScreen(
                 }
             }
             SettingSlider(
-                label = "Gap between tasks", valueText = "${settings.taskGapDp} dp",
+                label = "Gap between tasks", valueText = TaskRowMetrics.label(settings.taskGapDp),
                 value = settings.taskGapDp, range = AppSettings.TASK_GAP_RANGE,
                 onChange = { v -> onChange { it.copy(taskGapDp = v) } },
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(settings.taskGapDp.dp)) {
-                    Text("First task", fontSize = settings.listFontSp.sp)
-                    Text("Second task", fontSize = settings.listFontSp.sp)
+                val m = TaskRowMetrics.metrics(settings.taskGapDp)
+                Column(verticalArrangement = Arrangement.spacedBy(m.listSpacingDp.dp)) {
+                    for (name in listOf("First task", "Second task")) {
+                        Box(Modifier.fillMaxWidth().heightIn(min = m.minRowHeightDp.dp), contentAlignment = Alignment.CenterStart) {
+                            Text(name, fontSize = settings.listFontSp.sp)
+                        }
+                    }
                 }
             }
             SettingSwitch("Show priority number", settings.showPriorityNumber) { v -> onChange { it.copy(showPriorityNumber = v) } }

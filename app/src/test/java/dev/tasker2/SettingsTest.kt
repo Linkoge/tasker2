@@ -28,8 +28,8 @@ class SettingsTest {
     }
 
     @Test fun notesScaleWithTitle() {
-        assertEquals(13f, AppSettings().notesFontSp, 0.001f)
-        assertEquals(24 * 13f / 17f, AppSettings(listFontSp = 24).notesFontSp, 0.001f)
+        assertEquals(17 * 0.75f, AppSettings().notesFontSp, 0.001f)
+        assertEquals(24 * 0.75f, AppSettings(listFontSp = 24).notesFontSp, 0.001f)
     }
 
     @Test fun updatePersistsAndAppliesImmediately() {
@@ -68,9 +68,9 @@ class SettingsTest {
         val again = SettingsRepository(store).settings.value
         assertEquals(10, again.taskGapDp); assertFalse(again.showPriorityNumber); assertFalse(again.showPriorityBar)
         repo.update { it.copy(taskGapDp = 99) }
-        assertEquals(24, repo.settings.value.taskGapDp)
+        assertEquals(16, repo.settings.value.taskGapDp)
         repo.update { it.copy(taskGapDp = -3) }
-        assertEquals(0, repo.settings.value.taskGapDp)
+        assertEquals(-3, repo.settings.value.taskGapDp)
         repo.reset()
         assertEquals(AppSettings(), SettingsRepository(store).settings.value)
     }

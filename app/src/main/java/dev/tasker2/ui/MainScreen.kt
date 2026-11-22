@@ -15,6 +15,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layoutId
+import androidx.compose.ui.unit.Constraints
+import dev.tasker2.domain.StrikeLine
+import kotlin.math.roundToInt
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -81,29 +87,12 @@ import dev.tasker2.data.Category
 import dev.tasker2.data.Task
 import dev.tasker2.domain.AppSettings
 import dev.tasker2.domain.TaskLogic
+import dev.tasker2.domain.TaskRowMetrics
 import dev.tasker2.ui.theme.BadgeBg
 import dev.tasker2.ui.theme.CardColor
 import dev.tasker2.ui.theme.Muted
 
 fun priorityColor(priority: Int): Color = Color(TaskLogic.priorityColorArgb(priority))
-
-/** Text with a custom ~2dp strikethrough line (the default TextDecoration is too thin). */
-@Composable
-private fun StrikeText(text: String, fontSize: androidx.compose.ui.unit.TextUnit, color: Color, struck: Boolean) {
-    var layout by remember { mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null) }
-    val strokePx = with(LocalDensity.current) { 2.dp.toPx() }
-    Text(
-        text, fontSize = fontSize, color = color,
-        onTextLayout = { layout = it },
-        modifier = if (!struck) Modifier else Modifier.drawBehind {
-            val l = layout ?: return@drawBehind
-            for (i in 0 until l.lineCount) {
-                val y = (l.getLineTop(i) + l.getLineBottom(i)) / 2f
-                drawLine(color, Offset(l.getLineLeft(i), y), Offset(l.getLineRight(i), y), strokeWidth = strokePx)
-            }
-        },
-    )
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -194,7 +183,7 @@ fun MainScreen(
 
             LazyColumn(
                 contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = 12.dp, bottom = 96.dp),
-                verticalArrangement = Arrangement.spacedBy(settings.taskGapDp.dp),
+                verticalArrangement = Arrangement.spacedBy(TaskRowMetrics.metrics(settings.taskGapDp).listSpacingDp.dp),
             ) {
                 if (open.isNotEmpty()) item(key = "header") {
                     CardSection(top = true, bottom = false) {
@@ -329,51 +318,71 @@ private fun TaskRow(
     val grayed = TaskLogic.isDimmed(task)
     var menuOpen by remember { mutableStateOf(false) }
     var moveMenuOpen by remember { mutableStateOf(false) }
+    val metrics = TaskRowMetrics.metrics(settings.taskGapDp)
+    val grayText = Color(TaskLogic.Gray.TEXT)
     Box {
-        Row(
-            Modifier.fillMaxWidth()
-                .combinedClickable(onClick = { onEdit(task) }, onLongClick = { menuOpen = true })
-                .padding(start = 8.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // Round circle: one tap completes (or reopens) the task, crossed out or not.
-            Box(
-                Modifier.size(48.dp).clip(CircleShape).clickable { onToggleComplete(task) },
-                contentAlignment = Alignment.Center,
-            ) {
-                if (task.completed) {
-                    Icon(Icons.Filled.Check, "Mark not completed", tint = if (grayed) Color(TaskLogic.Gray.TEXT) else MaterialTheme.colorScheme.primary)
-                } else {
-                    Box(Modifier.size(22.dp).border(2.dp, if (grayed) Color(TaskLogic.Gray.TEXT) else Muted, CircleShape))
+        TaskRowLayout(
+            Modifier.fillMaxWidth().combinedClickable(onClick = { onEdit(task) }, onLongClick = { menuOpen = true }),
+            metrics = metrics,
+            strikeColor = if (grayed) grayText else null,
+            circle = {
+                // Round circle: one tap completes (or reopens) the task, crossed out or not.
+                Box(
+                    Modifier.fillMaxSize().clip(CircleShape).clickable { onToggleComplete(task) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (task.completed) {
+                        Icon(
+                            Icons.Filled.Check, "Mark not completed", Modifier.size(TaskRowMetrics.CIRCLE_DP.dp),
+                            tint = if (grayed) grayText else MaterialTheme.colorScheme.primary,
+                        )
+                    } else {
+                        Box(Modifier.size(TaskRowMetrics.CIRCLE_DP.dp).border(2.dp, if (grayed) grayText else Muted, CircleShape))
+                    }
                 }
-            }
-            Column(Modifier.weight(1f).padding(start = 4.dp, end = 8.dp, top = 6.dp, bottom = 6.dp)) {
-                StrikeText(
+            },
+            title = {
+                Text(
                     task.title,
                     fontSize = settings.listFontSp.sp,
-                    color = if (grayed) Color(TaskLogic.Gray.TEXT) else MaterialTheme.colorScheme.onSurface,
-                    struck = grayed,
+                    color = if (grayed) grayText else MaterialTheme.colorScheme.onSurface,
                 )
-                if (task.notes.isNotBlank()) {
-                    Text(task.notes, fontSize = settings.notesFontSp.sp, color = Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            },
+            notes = if (task.notes.isBlank()) null else ({
+                Text(task.notes, fontSize = settings.notesFontSp.sp, color = Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }),
+            indicator = {
+                PriorityIndicator(
+                    task.priority, grayscale = grayed,
+                    showNumber = TaskLogic.showBadge(task.priority, settings),
+                    showBar = TaskLogic.showBar(task.priority, settings),
+                )
+            },
+            checkbox = {
+                // Square checkbox at the far right: toggles crossed-out (task stays in the open list).
+                val boxColor = if (grayed) grayText else if (task.crossedOut) MaterialTheme.colorScheme.primary else Muted
+                Box(
+                    Modifier.fillMaxSize().toggleable(
+                        value = task.crossedOut, role = Role.Checkbox, onValueChange = { onToggleCrossedOut(task) },
+                    ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        Modifier.size(TaskRowMetrics.CHECKBOX_DP.dp).clip(RoundedCornerShape(3.dp))
+                            .background(if (task.crossedOut) (if (grayed) Color(TaskLogic.Gray.CHECK_FILL) else boxColor) else Color.Transparent)
+                            .border(2.dp, if (task.crossedOut && !grayed) boxColor else if (grayed) grayText else Muted, RoundedCornerShape(3.dp)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (task.crossedOut) {
+                            Icon(
+                                Icons.Filled.Check, null, Modifier.size(16.dp),
+                                tint = if (grayed) Color(TaskLogic.Gray.CHECKMARK) else MaterialTheme.colorScheme.onPrimary,
+                            )
+                        }
+                    }
                 }
-            }
-            PriorityIndicator(
-                task.priority, grayscale = grayed,
-                showNumber = TaskLogic.showBadge(task.priority, settings),
-                showBar = TaskLogic.showBar(task.priority, settings),
-            )
-            // Square checkbox at the far right: toggles crossed-out (task stays in the open list).
-            Checkbox(
-                checked = task.crossedOut,
-                onCheckedChange = { onToggleCrossedOut(task) },
-                colors = CheckboxDefaults.colors(
-                    checkedColor = if (grayed) Color(TaskLogic.Gray.CHECK_FILL) else MaterialTheme.colorScheme.primary,
-                    uncheckedColor = if (grayed) Color(TaskLogic.Gray.TEXT) else Muted,
-                    checkmarkColor = if (grayed) Color(TaskLogic.Gray.CHECKMARK) else MaterialTheme.colorScheme.onPrimary,
-                ),
-            )
-        }
+            },
+        )
         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
             DropdownMenuItem(text = { Text("Edit") }, onClick = { menuOpen = false; onEdit(task) })
             DropdownMenuItem(
@@ -422,6 +431,80 @@ fun PriorityIndicator(
             ) {
                 Box(Modifier.fillMaxWidth().height((32f * priority / Task.MAX_PRIORITY).dp).background(color))
             }
+        }
+    }
+}
+
+private enum class RowSlot { Circle, Title, Notes, Indicator, Checkbox, Strike }
+
+/**
+ * Task row: circle | title (+ notes below) | priority | checkbox.
+ * The title line is vertically centered with the circle, priority badge/bar and checkbox whether or not there are notes;
+ * notes hang below the title and only extend the row downward. When [strikeColor] is set, ONE ~2dp line is drawn on top at
+ * the title's center line from the left edge of the circle to the right edge of the checkbox ([StrikeLine]).
+ * The row is at least as tall as its tallest element, so shrinking the gap can never overlap or clip anything.
+ */
+@Composable
+private fun TaskRowLayout(
+    modifier: Modifier,
+    metrics: dev.tasker2.domain.RowMetrics,
+    strikeColor: Color?,
+    circle: @Composable () -> Unit,
+    title: @Composable () -> Unit,
+    notes: (@Composable () -> Unit)?,
+    indicator: @Composable () -> Unit,
+    checkbox: @Composable () -> Unit,
+) {
+    Layout(
+        content = {
+            Box(Modifier.layoutId(RowSlot.Circle)) { circle() }
+            Box(Modifier.layoutId(RowSlot.Title)) { title() }
+            if (notes != null) Box(Modifier.layoutId(RowSlot.Notes)) { notes() }
+            Box(Modifier.layoutId(RowSlot.Indicator)) { indicator() }
+            Box(Modifier.layoutId(RowSlot.Checkbox)) { checkbox() }
+            if (strikeColor != null) Box(Modifier.layoutId(RowSlot.Strike).background(strikeColor))
+        },
+        modifier = modifier,
+    ) { measurables, constraints ->
+        fun slot(s: RowSlot) = measurables.firstOrNull { it.layoutId == s }
+        val startPad = 8.dp.roundToPx(); val endPad = 4.dp.roundToPx()
+        val textStart = 4.dp.roundToPx(); val textEnd = 8.dp.roundToPx()
+        val pad = metrics.paddingDp.dp.roundToPx()
+        val target = metrics.targetDp.dp.roundToPx()
+        val width = constraints.maxWidth
+        val fixed = Constraints.fixed(target, target)
+        val circleP = slot(RowSlot.Circle)!!.measure(fixed)
+        val checkP = slot(RowSlot.Checkbox)!!.measure(fixed)
+        val indP = slot(RowSlot.Indicator)!!.measure(Constraints(maxWidth = width))
+        val textW = (width - startPad - target - textStart - textEnd - indP.width - target - endPad).coerceAtLeast(0)
+        val textC = Constraints(maxWidth = textW)
+        val titleP = slot(RowSlot.Title)!!.measure(textC)
+        val notesP = slot(RowSlot.Notes)?.measure(textC)
+        // Band = the title line's row: as tall as its tallest element, controls and title are centered in it.
+        val band = maxOf(target, indP.height, titleP.height)
+        val titleY = pad + (band - titleP.height) / 2
+        val centerY = pad + band / 2f
+        val contentBottom = maxOf(pad + band, titleY + titleP.height + (notesP?.height ?: 0))
+        val height = contentBottom + pad
+
+        val circleX = startPad
+        val checkX = width - endPad - target
+        val strike = slot(RowSlot.Strike)?.let { m ->
+            StrikeLine.span(
+                circleX.toFloat(), target.toFloat(), TaskRowMetrics.CIRCLE_DP.dp.toPx(),
+                checkX.toFloat(), target.toFloat(), TaskRowMetrics.CHECKBOX_DP.dp.toPx(),
+            )?.let { span ->
+                val h = 2.dp.roundToPx()
+                m.measure(Constraints.fixed(span.length.roundToInt().coerceAtLeast(0), h)) to span
+            }
+        }
+        layout(width, height) {
+            circleP.place(circleX, pad + (band - target) / 2)
+            titleP.place(startPad + target + textStart, titleY)
+            notesP?.place(startPad + target + textStart, titleY + titleP.height)
+            indP.place(checkX - indP.width, pad + (band - indP.height) / 2)
+            checkP.place(checkX, pad + (band - target) / 2)
+            strike?.let { (p, span) -> p.place(span.start.roundToInt(), (centerY - p.height / 2f).roundToInt()) }
         }
     }
 }
